@@ -1,6 +1,6 @@
 package com.kntrel.mc.accwarden.account;
 
-import com.kntrel.mc.accwarden.io.LangProvider;
+import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.io.database.DataBase;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -11,21 +11,19 @@ import java.util.UUID;
 public class AccountRepository {
 
     //FIELDS
+    private final AccWarden plugin_;
     private final DataBase dataBase_;
     private int minLength_ = 0, maxLength_ = 12;
-    private LangProvider langProvider_ = null;
 
     //CONSTRUCTOR
-    public AccountRepository(DataBase dataBase) {
+    public AccountRepository(AccWarden plugin, DataBase dataBase) {
+        this.plugin_ = plugin;
         this.dataBase_ = dataBase;
     }
 
     //SETTERS
     public void setSizes(int min, int max) {
         this.minLength_ = min; this.maxLength_ = max;
-    }
-    public void setLangProvider(LangProvider langProvider) {
-        this.langProvider_ = langProvider;
     }
 
     //GETTERS
@@ -66,8 +64,7 @@ public class AccountRepository {
         this.dataBase_.delete(toDelete);
         Player affected = Bukkit.getPlayer(toDelete.getId());
         if (affected == null) { return; }
-        String message = (this.langProvider_ == null) ? "" : this.langProvider_.getEntry(affected,"info.account_deleted");
-        affected.kickPlayer(message);
+        affected.kickPlayer(this.plugin_.getRunical().translate(affected, "info.account_deleted").orDefault("").message());
     }
 
 }

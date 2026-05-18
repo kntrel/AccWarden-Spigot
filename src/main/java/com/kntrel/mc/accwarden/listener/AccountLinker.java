@@ -35,7 +35,10 @@ public class AccountLinker implements Listener {
 
         e.disallow(
                 AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                this.plugin_.getLangProvider().getEntry(this.plugin_.CONFIG.defaultLanguage(),"info.account_linked")
+                this.plugin_.getRunical()
+                        .translate(this.plugin_.CONFIG.defaultLanguage(), "info.account_linked")
+                        .orDefault("")
+                        .message()
         );
     }
 }

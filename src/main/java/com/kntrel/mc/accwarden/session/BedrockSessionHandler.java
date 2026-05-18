@@ -58,7 +58,10 @@ public class BedrockSessionHandler extends SessionHandler {
         if (account.hasBedrock()) {
             this.log("Bedrock player with UUID '" + account.getId() + "' is already registered with Bedrock access. Logging in.");
             LoginManager.logIn(player,account);
-            player.sendMessage(ChatColor.GREEN + this.plugin.getLangProvider().getEntry(player,"info.logged_in"));
+            player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
+                    .translate(player, "info.logged_in")
+                    .orDefault("")
+                    .message());
             return;
         } else if (account.hasJava()) {
             mode = LoginMode.NEW_IN_PLATFORM;
@@ -114,7 +117,10 @@ public class BedrockSessionHandler extends SessionHandler {
                 account.setBedrock(true);
                 account.save();
                 LoginManager.logIn(player, account);
-                player.sendMessage(ChatColor.GREEN + BedrockSessionHandler.this.plugin.getLangProvider().getEntry(player,"info.logged_in"));
+                player.sendMessage(ChatColor.GREEN + BedrockSessionHandler.this.plugin.getRunical()
+                        .translate(player, "info.logged_in")
+                        .orDefault("")
+                        .message());
             }
         };
 
@@ -155,14 +161,26 @@ public class BedrockSessionHandler extends SessionHandler {
             String basePath = "login.bedrock." + switch (this.mode_) {
                 case NEW -> "new"; case NEW_IN_PLATFORM -> "new_in_bedrock"; case EXISTING -> "existing";
             } + ".";
-            String placeholder = this.getLangMessage_(basePath + "fields.placeholder");
+            String placeholder = this.handler_.plugin.getRunical()
+                    .translate(this.player_, basePath + "fields.placeholder")
+                    .orDefault("")
+                    .message();
 
             CustomForm.Builder formBuilder = CustomForm.builder();
             formBuilder
-                    .label(this.getLangMessage_(basePath + "disclosure"))
-                    .input(this.getLangMessage_(basePath + "fields.password"), placeholder);
+                    .label(this.handler_.plugin.getRunical()
+                            .translate(this.player_, basePath + "disclosure")
+                            .orDefault("")
+                            .message())
+                    .input(this.handler_.plugin.getRunical()
+                            .translate(this.player_, basePath + "fields.password")
+                            .orDefault("")
+                            .message(), placeholder);
             if (this.mode_.equals(LoginMode.NEW)) {
-                formBuilder.input(this.getLangMessage_(basePath + "fields.confirm_password"), placeholder);
+                formBuilder.input(this.handler_.plugin.getRunical()
+                        .translate(this.player_, basePath + "fields.confirm_password")
+                        .orDefault("")
+                        .message(), placeholder);
             }
             formBuilder.responseHandler((this.mode_.equals(LoginMode.NEW)) ?
                 (f, s) -> {
@@ -177,9 +195,17 @@ public class BedrockSessionHandler extends SessionHandler {
                     try {
                         match = this.account_.setPassword(pw1, pw2);
                     } catch (PasswordTooShortException ex) {
-                        error = this.getLangMessage_("error.invalid_input.too_short", Integer.toString(ex.getMinLength()));
+                        error = this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.too_short")
+                                .argument("min", ex.getMinLength())
+                                .orDefault("")
+                                .message();
                     } catch (PasswordTooLongException ex) {
-                        error = this.getLangMessage_("error.invalid_input.too_long", Integer.toString(ex.getMaxLength()));
+                        error = this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.too_long")
+                                .argument("max", ex.getMaxLength())
+                                .orDefault("")
+                                .message();
                     }
 
                     if (error != null) {
@@ -188,7 +214,10 @@ public class BedrockSessionHandler extends SessionHandler {
                     }
 
                     if (!match) {
-                        this.sendErrorMessage_(this.getLangMessage_("error.invalid_input.no_match"));
+                        this.sendErrorMessage_(this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.no_match")
+                                .orDefault("")
+                                .message());
                         return;
                     }
 
@@ -210,15 +239,28 @@ public class BedrockSessionHandler extends SessionHandler {
                     this.tries_++;
                     String errorBasePath = "error.incorrect_password.";
                     AccWardenConfig conf = this.handler_.plugin.CONFIG;
-                    String errorMessage = this.getLangMessage_(errorBasePath + "fine");
+                    String errorMessage = this.handler_.plugin.getRunical()
+                            .translate(this.player_, errorBasePath + "fine")
+                            .orDefault("")
+                            .message();
                     if (this.tries_ >= conf.failLoginOdd()) {
                         int next = conf.failLoginOdd() + conf.failLoginWarn();
                         if (this.tries_ >= next && conf.failLoginAccountLock()) {
                             next += conf.failLoginLock();
                             if (this.tries_ >= next && conf.failLoginLock() > 0) {
                                 this.account_.lock();
-                            } else { errorMessage = this.getLangMessage_(errorBasePath + "warn"); }
-                        } else { errorMessage = this.getLangMessage_(errorBasePath + "odd"); }
+                            } else {
+                                errorMessage = this.handler_.plugin.getRunical()
+                                        .translate(this.player_, errorBasePath + "warn")
+                                        .orDefault("")
+                                        .message();
+                            }
+                        } else {
+                            errorMessage = this.handler_.plugin.getRunical()
+                                    .translate(this.player_, errorBasePath + "odd")
+                                    .orDefault("")
+                                    .message();
+                        }
                     }
 
                     this.sendErrorMessage_(errorMessage);
@@ -238,8 +280,14 @@ public class BedrockSessionHandler extends SessionHandler {
 
             formBuilder
                     .content(errorBuilder.toString())
-                    .button1(this.getLangMessage_("login.bedrock.error_form.buttonRetry"))
-                    .button2(this.getLangMessage_("login.bedrock.error_form.buttonQuit"));
+                    .button1(this.handler_.plugin.getRunical()
+                            .translate(this.player_, "login.bedrock.error_form.buttonRetry")
+                            .orDefault("")
+                            .message())
+                    .button2(this.handler_.plugin.getRunical()
+                            .translate(this.player_, "login.bedrock.error_form.buttonQuit")
+                            .orDefault("")
+                            .message());
             formBuilder.responseHandler((f, s) -> {
                 ModalFormResponse response = f.parseResponse(s);
                 if (!(response.isCorrect() && response.getResult())) { this.kick_(); return; }
@@ -249,18 +297,19 @@ public class BedrockSessionHandler extends SessionHandler {
             this.handler_.floodgateApi_.sendForm(this.player_.getUniqueId(), formBuilder);
         }
         private void kick_() {
-           this.player_.kickPlayer(this.getLangMessage_(
-                "error.kicked." + ((this.mode_.equals(LoginMode.NEW)) ? "not_registered" : "not_logged")
-            ));
+           this.player_.kickPlayer(this.handler_.plugin.getRunical()
+                   .translate(this.player_, "error.kicked." + ((this.mode_.equals(LoginMode.NEW)) ? "not_registered" : "not_logged"))
+                   .orDefault("")
+                   .message());
         }
         private void login_() {
             this.account_.setBedrock(true);
             this.account_.save();
             LoginManager.logIn(this.player_,this.account_);
-            this.player_.sendMessage(ChatColor.GREEN + this.getLangMessage_("info.logged_in"));
-        }
-        private String getLangMessage_(String path, String... params) {
-            return this.handler_.plugin.getLangProvider().getEntry(this.player_,path, params);
+            this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
+                    .translate(this.player_, "info.logged_in")
+                    .orDefault("")
+                    .message());
         }
     }
 

@@ -38,9 +38,9 @@ login:
       buttonQuit: "Salir"
 
 command:
-  unexisting_account: "%1$s no tiene una cuanta."
+  unexisting_account: "{player} no tiene una cuanta."
   reset:
-    success: "La cuenta de %1$s fue eliminada."
+    success: "La cuenta de {player} fue eliminada."
   changePassword:
     success: "Se actualizó tu contraseña."
 
@@ -57,8 +57,8 @@ error:
   invalid_input:
     no_match: "¡Las contraseñas no coinciden!"
     non_confirmed: "¡Debes confirmar tu contraseña!"
-    too_short: "Tu contraseña debe tener mínimo %1$s caracteres."
-    too_long: "Tu contraseña no puede exeder los %1$s caracteres."
+    too_short: "Tu contraseña debe tener mínimo {min} caracteres."
+    too_long: "Tu contraseña no puede exeder los {max} caracteres."
 
   incorrect_password:
     fine: "¡Contraseña incorrecta!"

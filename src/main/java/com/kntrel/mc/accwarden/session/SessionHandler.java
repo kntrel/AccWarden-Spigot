@@ -2,7 +2,6 @@ package com.kntrel.mc.accwarden.session;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.AccountRepository;
-import com.kntrel.mc.accwarden.io.LangProvider;
 import org.bukkit.entity.Player;
 import java.util.logging.Level;
 
@@ -15,7 +14,6 @@ public abstract class SessionHandler {
     protected final AccountRepository accountRepository;
     protected final SessionHolder sessionHolder;
     protected final AccWarden plugin;
-    protected final LangProvider langProvider;
     private Level loggingLevel_ = Level.FINEST;
 
     //CONSTRUCTORS
@@ -23,7 +21,6 @@ public abstract class SessionHandler {
         this.accountRepository = repository;
         this.sessionHolder = sessionHolder;
         this.plugin = plugin;
-        this.langProvider = this.plugin.getLangProvider();
     }
 
     //SETTERS

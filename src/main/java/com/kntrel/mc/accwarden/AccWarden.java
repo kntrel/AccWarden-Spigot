@@ -3,19 +3,19 @@ package com.kntrel.mc.accwarden;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.command.AccountCommand;
-import com.kntrel.mc.accwarden.io.LangProvider;
 import com.kntrel.mc.accwarden.io.database.DataBase;
 import com.kntrel.mc.accwarden.listener.AccWardenListener;
 import com.kntrel.mc.accwarden.listener.AccountLinker;
 import com.kntrel.mc.accwarden.session.LoginManager;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
+import com.kntrel.mc.runical.bukkit.Runical;
+import com.kntrel.mc.runical.core.RunicalOptions;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.util.logging.Level;
 
 public final class AccWarden extends JavaPlugin {
 
@@ -27,7 +27,7 @@ public final class AccWarden extends JavaPlugin {
     private final DataBase dataBase_ = new DataBase();
     private AccountRepository accountRepository_ = null;
     private SessionHolder sessionHolder_ = null;
-    private LangProvider langProvider_ = null;
+    private Runical runical_ = null;
     private boolean bedrockOn_ = false;
 
     //PLUGIN LOGIC
@@ -45,9 +45,11 @@ public final class AccWarden extends JavaPlugin {
         AccWarden.instance_ = this;
 
         //Language setup
-        this.langProvider_ = new LangProvider(this, "lang");
-        this.langProvider_.setDefaultLanguage(this.CONFIG.defaultLanguage());
-        this.langProvider_.setLoggingLevel(Level.INFO);
+        this.runical_ = new Runical(
+                this,
+                "lang",
+                RunicalOptions.builder().defaultLocale(this.CONFIG.defaultLanguage()).build()
+        );
 
         //Database setup
         this.dataBase_.setFilePath(pluginPath + "/database.db");
@@ -60,9 +62,8 @@ public final class AccWarden extends JavaPlugin {
 
         //Accounts and sessions setup
         this.dataBase_.addEntity(Account.class, new Account.Parser(), "accounts");
-        this.accountRepository_ = new AccountRepository(this.dataBase_);
+        this.accountRepository_ = new AccountRepository(this, this.dataBase_);
         this.accountRepository_.setSizes(this.CONFIG.passwordMinSize(), this.CONFIG.passwordMaxSize());
-        this.accountRepository_.setLangProvider(this.langProvider_);
         this.sessionHolder_ = new SessionHolder(this);
         this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
         this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions());
@@ -93,7 +94,10 @@ public final class AccWarden extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        if (this.runical_ != null) {
+            this.runical_.close();
+            this.runical_ = null;
+        }
     }
 
     //GETTERS
@@ -106,8 +110,8 @@ public final class AccWarden extends JavaPlugin {
     public SessionHolder getSessionHolder() {
         return this.sessionHolder_;
     }
-    public LangProvider getLangProvider() {
-        return this.langProvider_;
+    public Runical getRunical() {
+        return this.runical_;
     }
     public boolean isBedrockOn() {
         return this.bedrockOn_;

@@ -94,14 +94,20 @@ public final class AccWardenListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     void OnPlayerUseChat(AsyncPlayerChatEvent e) {
         if (LoginManager.isLogged(e.getPlayer())) { return; }
-        e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getLangProvider().getEntry(e.getPlayer(),"error.not_allowed.send_message"));
+        e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getRunical()
+                .translate(e.getPlayer(), "error.not_allowed.send_message")
+                .orDefault("")
+                .message());
         e.setCancelled(true);
     }
 
     @EventHandler
     void OnPlayerIssueCommand(PlayerCommandPreprocessEvent e) {
         if (LoginManager.isLogged(e.getPlayer())) { return; }
-        e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getLangProvider().getEntry(e.getPlayer(),"error.not_allowed.issue_command"));
+        e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getRunical()
+                .translate(e.getPlayer(), "error.not_allowed.issue_command")
+                .orDefault("")
+                .message());
         e.setCancelled(true);
     }
 

@@ -38,9 +38,9 @@ login:
       buttonQuit: "Quit"
 
 command:
-  unexisting_account: "%1$s doesn't have an account."
+  unexisting_account: "{player} doesn't have an account."
   reset:
-    success: "%1$s's account has been deleted."
+    success: "{player}'s account has been deleted."
   changePassword:
     success: "Your password has been changed."
 
@@ -57,8 +57,8 @@ error:
   invalid_input:
     no_match: "Passwords do not match!"
     non_confirmed: "Missing confirmation!"
-    too_short: "Your password cannot have less than %1$s characters."
-    too_long: "Your password cannot have more than %1$s characters."
+    too_short: "Your password cannot have less than {min} characters."
+    too_long: "Your password cannot have more than {max} characters."
 
   incorrect_password:
     fine: "Wrong password!"

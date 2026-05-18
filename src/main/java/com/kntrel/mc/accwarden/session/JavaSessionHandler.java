@@ -7,7 +7,6 @@ import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.account.Platform;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
-import com.kntrel.mc.accwarden.io.LangProvider;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -45,7 +44,10 @@ public class JavaSessionHandler extends SessionHandler {
         if (this.sessionHolder.claim(player, Platform.JAVA)) {
             this.log("Bypassing login for " + player.getName() + " as a session was already open.");
             LoginManager.logIn(player, this.accountRepository.retrieve(player));
-            player.sendMessage(ChatColor.GREEN + this.plugin.getLangProvider().getEntry(player,"info.logged_in"));
+            player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
+                    .translate(player, "info.logged_in")
+                    .orDefault("")
+                    .message());
             return;
         }
 
@@ -135,9 +137,18 @@ public class JavaSessionHandler extends SessionHandler {
                 case NEW -> "new"; case NEW_IN_PLATFORM -> "new_in_java"; case EXISTING -> "existing";
             } + ".";
 
-            String  title = this.getLangMessage_(basePath + "title"),
-                    subtitle = this.getLangMessage_(basePath + "subtitle"),
-                    actionBar = this.getLangMessage_(basePath + "actionbar");
+            String  title = this.handler_.plugin.getRunical()
+                            .translate(this.player_, basePath + "title")
+                            .orDefault("")
+                            .message(),
+                    subtitle = this.handler_.plugin.getRunical()
+                            .translate(this.player_, basePath + "subtitle")
+                            .orDefault("")
+                            .message(),
+                    actionBar = this.handler_.plugin.getRunical()
+                            .translate(this.player_, basePath + "actionbar")
+                            .orDefault("")
+                            .message();
 
             if (!(title.equals("") && subtitle.equals(""))) {
                 this.player_.sendTitle(title, subtitle, 0, JavaSessionHandler.REFRESH_RATE, 40);
@@ -149,7 +160,6 @@ public class JavaSessionHandler extends SessionHandler {
         }
         void readMessage(AsyncPlayerChatEvent e, Listener listener) {
             String[] words = e.getMessage().split(" ");
-            LangProvider lp = this.handler_.langProvider;
 
             switch (this.mode_) {
                 case NEW -> {
@@ -159,15 +169,26 @@ public class JavaSessionHandler extends SessionHandler {
                     try {
                         match = this.account_.setPassword(words[0], words[1]);
                     } catch (PasswordTooLongException ex) {
-                        this.player_.sendMessage(ChatColor.RED + lp.getEntry(this.player_,"error.invalid_input.too_long", ex.getMaxLength()));
+                        this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.too_long")
+                                .argument("max", ex.getMaxLength())
+                                .orDefault("")
+                                .message());
                         return;
                     } catch (PasswordTooShortException ex) {
-                        this.player_.sendMessage(ChatColor.RED + lp.getEntry(this.player_,"error.invalid_input.too_short", ex.getMinLength()));
+                        this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.too_short")
+                                .argument("min", ex.getMinLength())
+                                .orDefault("")
+                                .message());
                         return;
                     }
 
                     if (!match) {
-                        this.player_.sendMessage(ChatColor.RED + lp.getEntry(this.player_,"error.invalid_input.no_match"));
+                        this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.invalid_input.no_match")
+                                .orDefault("")
+                                .message());
                         this.showChatMessage_();
                         return;
                     }
@@ -194,7 +215,10 @@ public class JavaSessionHandler extends SessionHandler {
                         } else { endPath = "odd"; }
                     }
 
-                    this.player_.sendMessage(ChatColor.RED + lp.getEntry(this.player_,"error.incorrect_password." + endPath ));
+                    this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
+                            .translate(this.player_, "error.incorrect_password." + endPath)
+                            .orDefault("")
+                            .message());
                     this.showChatMessage_();
                     return;
                 }
@@ -207,22 +231,23 @@ public class JavaSessionHandler extends SessionHandler {
             Bukkit.getScheduler().runTask(this.handler_.plugin, () -> {
                 LoginManager.logIn(this.player_, this.account_);   //Cannot change gameMode from async
                 this.handler_.removeLogin_(this);
-                this.player_.sendMessage(ChatColor.GREEN + lp.getEntry(this.player_,"info.logged_in"));
+                this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
+                        .translate(this.player_, "info.logged_in")
+                        .orDefault("")
+                        .message());
             });
         }
         private void showChatMessage_() {
-            String message = this.getLangMessage_(
-            "login.java." + switch (this.mode_) {
-                    case NEW -> "new"; case NEW_IN_PLATFORM -> "new_in_java"; case EXISTING -> "existing";
-                } + ".chat"
-            );
+            String message = this.handler_.plugin.getRunical()
+                    .translate(this.player_, "login.java." + switch (this.mode_) {
+                        case NEW -> "new"; case NEW_IN_PLATFORM -> "new_in_java"; case EXISTING -> "existing";
+                    } + ".chat")
+                    .orDefault("")
+                    .message();
 
             if (!message.equals("")) {
                 this.player_.sendMessage(message);
             }
-        }
-        private String getLangMessage_(String path, String... params) {
-            return this.handler_.plugin.getLangProvider().getEntry(this.player_,path, params);
         }
     }
 
