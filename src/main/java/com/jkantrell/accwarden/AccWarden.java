@@ -10,7 +10,7 @@ import com.jkantrell.accwarden.listener.AccWardenListener;
 import com.jkantrell.accwarden.listener.AccountLinker;
 import com.jkantrell.accwarden.session.LoginManager;
 import com.jkantrell.accwarden.session.SessionHolder;
-import com.jkantrell.commander.command.Commander;
+import com.kntrel.mc.commvoker.spigot.Commvoker;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.FileNotFoundException;
@@ -90,8 +90,8 @@ public final class AccWarden extends JavaPlugin {
         }
 
         //Setting up commands
-        Commander commander = new Commander(this);
-        commander.register(new AccountCommand(this));
+        Commvoker commvoker = new Commvoker(this);
+        commvoker.register(new AccountCommand(this));
     }
 
     @Override
