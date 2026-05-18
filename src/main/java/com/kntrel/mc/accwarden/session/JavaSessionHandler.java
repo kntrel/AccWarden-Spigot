@@ -1,12 +1,12 @@
 package com.kntrel.mc.accwarden.session;
 
 import com.kntrel.mc.accwarden.AccWarden;
+import com.kntrel.mc.accwarden.AccWardenConfig;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.account.Platform;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
-import com.kntrel.mc.accwarden.io.Config;
 import com.kntrel.mc.accwarden.io.LangProvider;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -181,13 +181,13 @@ public class JavaSessionHandler extends SessionHandler {
                     if (match) { break; }
 
                     this.tries_++;
-                    Config conf = this.handler_.plugin.CONFIG;
+                    AccWardenConfig conf = this.handler_.plugin.CONFIG;
                     String endPath = "fine";
-                    if (this.tries_ >= conf.failLoginOdd) {
-                        int next = conf.failLoginOdd + conf.failLoginWarn;
-                        if (this.tries_ >= next && conf.failLoginAccountLock) {
-                            next += conf.failLoginLock;
-                            if (this.tries_ >= next && conf.failLoginLock > 0) {
+                    if (this.tries_ >= conf.failLoginOdd()) {
+                        int next = conf.failLoginOdd() + conf.failLoginWarn();
+                        if (this.tries_ >= next && conf.failLoginAccountLock()) {
+                            next += conf.failLoginLock();
+                            if (this.tries_ >= next && conf.failLoginLock() > 0) {
                                 this.account_.lock();
                                 break;
                             } else { endPath = "warn"; }

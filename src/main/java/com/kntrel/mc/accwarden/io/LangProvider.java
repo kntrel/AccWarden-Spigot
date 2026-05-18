@@ -1,15 +1,13 @@
 package com.kntrel.mc.accwarden.io;
 
-import com.jkantrell.yamlizer.yaml.YamlElement;
-import com.jkantrell.yamlizer.yaml.YamlElementType;
-import com.jkantrell.yamlizer.yaml.YamlMap;
-import org.apache.commons.lang3.StringUtils;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -20,7 +18,7 @@ public class LangProvider {
     private Level loggingLevel_ = Level.FINEST;
     private final String langsPath_;
     private final JavaPlugin plugin_;
-    private final HashMap<String, YamlMap> langs_ = new HashMap<>();
+    private final HashMap<String, YamlConfiguration> langs_ = new HashMap<>();
 
     //CONSTRUCTORS
     public LangProvider(JavaPlugin plugin, String langsPath) {
@@ -36,24 +34,19 @@ public class LangProvider {
     }
     public LangProvider(JavaPlugin plugin, String langsPath, String defaultLang) {
         this(plugin,langsPath);
-        this.setDefaultLanguage(langsPath);
+        this.setDefaultLanguage(defaultLang);
     }
 
     //SETTERS
     public void setDefaultLanguage(String key) {
         this.defaultLang_ = key;
-        try {
-            YamlMap lang = this.loadLanguage_(key);
-            if (lang == null) {
-                this.log_(
-                    "The lang file '" + key + "' does not exist neither in " + this.plugin_.getName() + "'s internal resources, nor in the plugin's langs path.\n"
-                    + "Set an existing default file or create it. Then restart the server.",
-                    Level.SEVERE
-                );
-                this.defaultLang_ = null;
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
+        YamlConfiguration lang = this.loadLanguage_(key);
+        if (lang == null) {
+            this.log_(
+                "The lang file '" + key + "' does not exist neither in " + this.plugin_.getName() + "'s internal resources, nor in the plugin's langs path.\n"
+                + "Set an existing default file or create it. Then restart the server.",
+                Level.SEVERE
+            );
             this.defaultLang_ = null;
         }
     }
@@ -72,23 +65,18 @@ public class LangProvider {
         return this.getNonFormattedEntry(player.getLocale(), path);
     }
     public String getNonFormattedEntry(String locale, String path) {
-        YamlMap lang = null;
-        try {
-            lang = this.pickLanguage_(locale);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        YamlConfiguration lang = this.pickLanguage_(locale);
         if (lang == null) {
             this.log_("Unable to load a language file. Please set a default language and make sure its file exists.", Level.WARNING);
             return "";
         }
 
         //Returning entry if it was found
-        YamlElement r = lang.gerFromPath(path);
-        if (r != null) { return r.get(YamlElementType.STRING); }
+        String result = lang.getString(path);
+        if (result != null) { return result; }
 
         //Retrieving the language code being used (for logging purposes)
-        YamlMap finalLang = lang;
+        YamlConfiguration finalLang = lang;
         String name = this.langs_.entrySet().stream()
                 .filter(e -> e.getValue() != null)
                 .filter(e -> e.getValue().equals(finalLang))
@@ -100,11 +88,12 @@ public class LangProvider {
 
         //Trying getting the entry from the default file
         if (this.defaultLang_ != null) {
-            r = this.langs_.get(this.defaultLang_).gerFromPath(path);
-            if (r != null) {
+            YamlConfiguration defaultLang = this.langs_.get(this.defaultLang_);
+            result = defaultLang == null ? null : defaultLang.getString(path);
+            if (result != null) {
                 log.append(" Using default file instead.");
                 this.log_(log.toString(), Level.WARNING);
-                return r.get(YamlElementType.STRING);
+                return result;
             } else {
                 log.append(" Not in default language file either.");
             }
@@ -118,25 +107,27 @@ public class LangProvider {
         return "";
     }
     public void addLanguage(String locale, InputStream inputStream) {
-        this.addLanguage(locale,new YamlMap(inputStream));
+        this.addLanguage(locale, YamlConfiguration.loadConfiguration(
+                new InputStreamReader(inputStream, StandardCharsets.UTF_8)
+        ));
     }
-    public void addLanguage(String locale, YamlMap yamlMap) {
-        if (this.defaultLang_ == null && yamlMap != null) {
+    public void addLanguage(String locale, YamlConfiguration yamlConfig) {
+        if (this.defaultLang_ == null && yamlConfig != null) {
             this.log_("Proactively setting '" + locale + ".yml' as default language file.", Level.WARNING);
             this.defaultLang_ = locale;
         }
-        this.langs_.put(locale,yamlMap);
+        this.langs_.put(locale,yamlConfig);
     }
 
     //PRIVATE METHODS
-    private YamlMap pickLanguage_(String locale) throws FileNotFoundException {
+    private YamlConfiguration pickLanguage_(String locale) {
 
         //Attempting lo pick a perfect match
-        YamlMap m = this.loadLanguage_(locale);
+        YamlConfiguration m = this.loadLanguage_(locale);
         if (m != null) { return m; }
 
         //Attempting lo pick a general language
-        String k = StringUtils.split(locale,'_')[0];
+        String k = this.getLanguageCode_(locale);
         m = this.loadLanguage_(k);
         if (m != null) { return m; }
 
@@ -150,7 +141,9 @@ public class LangProvider {
         //Picking the default language
         return this.langs_.get(this.defaultLang_);
     }
-    private YamlMap loadLanguage_(String locale) throws FileNotFoundException {
+    private YamlConfiguration loadLanguage_(String locale) {
+        if (locale == null || locale.isBlank()) { return null; }
+
         //Checking if already loaded
         if (this.langs_.containsKey(locale)) { return this.langs_.get(locale); }
         this.log_("Language file '" + locale + "' not loaded.");
@@ -161,7 +154,7 @@ public class LangProvider {
         File file = new File(filePath);
         if (file.exists()) {
             this.log_("Found language file '" + locale + "' in plugin's data directory.");
-            YamlMap lang = new YamlMap(new FileInputStream(file));
+            YamlConfiguration lang = YamlConfiguration.loadConfiguration(file);
             this.addLanguage(locale, lang);
             return lang;
         }
@@ -170,8 +163,8 @@ public class LangProvider {
         //Checking if there's such resource in the JAR
         String langFilePath = this.langsPath_ + "/" + locale + ".yml";
         this.log_("Looking for language file '" + locale + "' in internal resources (" + langFilePath + ").");
-        InputStream langFIle = this.plugin_.getResource(langFilePath);
-        if (langFIle == null) {
+        InputStream langFile = this.plugin_.getResource(langFilePath);
+        if (langFile == null) {
             this.log_("Language file '" + locale + "' not found in internal resources either. Non-existing language file.");
             this.langs_.put(locale,null);
             return null;
@@ -180,9 +173,18 @@ public class LangProvider {
 
         this.plugin_.saveResource(langFilePath, true);
         file = new File(filePath);
-        YamlMap lang = new YamlMap(new FileInputStream(file));
+        YamlConfiguration lang = YamlConfiguration.loadConfiguration(file);
         this.addLanguage(locale, lang);
         return lang;
+    }
+    private String getLanguageCode_(String locale) {
+        if (locale == null || locale.isBlank()) { return ""; }
+        int underscore = locale.indexOf('_');
+        int dash = locale.indexOf('-');
+        int separator = -1;
+        if (underscore >= 0) { separator = underscore; }
+        if (dash >= 0) { separator = separator < 0 ? dash : Math.min(separator, dash); }
+        return separator < 0 ? locale : locale.substring(0, separator);
     }
 
     private void log_(String message, Level level) {
@@ -192,4 +194,3 @@ public class LangProvider {
         this.log_(message,this.loggingLevel_);
     }
 }
-

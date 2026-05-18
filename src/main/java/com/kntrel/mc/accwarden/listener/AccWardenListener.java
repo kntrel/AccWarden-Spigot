@@ -4,7 +4,6 @@ import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.account.Platform;
-import com.jkantrell.accwarden.session.*;
 import com.kntrel.mc.accwarden.session.*;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;

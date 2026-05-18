@@ -3,7 +3,6 @@ package com.kntrel.mc.accwarden;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.command.AccountCommand;
-import com.kntrel.mc.accwarden.io.Config;
 import com.kntrel.mc.accwarden.io.LangProvider;
 import com.kntrel.mc.accwarden.io.database.DataBase;
 import com.kntrel.mc.accwarden.listener.AccWardenListener;
@@ -12,8 +11,9 @@ import com.kntrel.mc.accwarden.session.LoginManager;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 
@@ -23,7 +23,7 @@ public final class AccWarden extends JavaPlugin {
     private static AccWarden instance_ = null;
 
     //FIELDS
-    public final Config CONFIG = new Config("");
+    public AccWardenConfig CONFIG = AccWardenConfig.DEFAULT;
     private final DataBase dataBase_ = new DataBase();
     private AccountRepository accountRepository_ = null;
     private SessionHolder sessionHolder_ = null;
@@ -35,21 +35,18 @@ public final class AccWarden extends JavaPlugin {
     public void onEnable() {
         //Configuration initialization
         String pluginPath = this.getDataFolder().getPath();
-        this.CONFIG.setFilePath(pluginPath + "/config.yml");
-        try {
-            this.CONFIG.load();
-        } catch (FileNotFoundException e) {
-            this.saveResource("config.yml",true);
-            this.onEnable();
-            return;
+        File configFile = new File(pluginPath, "config.yml");
+        if (!configFile.exists()) {
+            this.saveResource("config.yml", false);
         }
+        this.CONFIG = AccWardenConfig.load(YamlConfiguration.loadConfiguration(configFile));
 
         //Main instance setup
         AccWarden.instance_ = this;
 
         //Language setup
         this.langProvider_ = new LangProvider(this, "lang");
-        this.langProvider_.setDefaultLanguage(this.CONFIG.defaultLanguage);
+        this.langProvider_.setDefaultLanguage(this.CONFIG.defaultLanguage());
         this.langProvider_.setLoggingLevel(Level.INFO);
 
         //Database setup
@@ -64,11 +61,11 @@ public final class AccWarden extends JavaPlugin {
         //Accounts and sessions setup
         this.dataBase_.addEntity(Account.class, new Account.Parser(), "accounts");
         this.accountRepository_ = new AccountRepository(this.dataBase_);
-        this.accountRepository_.setSizes(this.CONFIG.passwordMinSize, this.CONFIG.passwordMaxSize);
+        this.accountRepository_.setSizes(this.CONFIG.passwordMinSize(), this.CONFIG.passwordMaxSize());
         this.accountRepository_.setLangProvider(this.langProvider_);
         this.sessionHolder_ = new SessionHolder(this);
-        this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime);
-        this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions);
+        this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
+        this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions());
         LoginManager.setUp(this);
 
         //Floodgate setup
@@ -78,7 +75,7 @@ public final class AccWarden extends JavaPlugin {
 
         //Listener setup
         this.getServer().getPluginManager().registerEvents(new AccWardenListener(this), this);
-        if (this.isBedrockOn() && this.CONFIG.playerNameAutoLinking) {
+        if (this.isBedrockOn() && this.CONFIG.playerNameAutoLinking()) {
             try {
                 this.getServer().getPluginManager().registerEvents(new AccountLinker(this), this);
             } catch (IllegalArgumentException e) {
