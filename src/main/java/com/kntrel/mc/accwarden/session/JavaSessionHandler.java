@@ -3,8 +3,9 @@ package com.kntrel.mc.accwarden.session;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.AccWardenConfig;
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountRepository;
+import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.account.Platform;
+import com.kntrel.mc.accwarden.account.exception.LogginException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import net.md_5.bungee.api.ChatMessageType;
@@ -32,8 +33,8 @@ public class JavaSessionHandler extends SessionHandler {
     private BukkitRunnable informationRefresher_ = null;
 
     //CONSTRUCTOR
-    public JavaSessionHandler(AccountRepository repository, SessionHolder sessionHolder, AccWarden plugin) {
-        super(repository, sessionHolder, plugin);
+    public JavaSessionHandler(AccountService accountService, SessionHolder sessionHolder, AccWarden plugin) {
+        super(accountService, sessionHolder, plugin);
         this.listener_ = null;
     }
 
@@ -43,16 +44,20 @@ public class JavaSessionHandler extends SessionHandler {
         //Checking if there's a session already open
         if (this.sessionHolder.claim(player, Platform.JAVA)) {
             this.log("Bypassing login for " + player.getName() + " as a session was already open.");
-            LoginManager.logIn(player, this.accountRepository.retrieve(player));
-            player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
-                    .translate(player, "info.logged_in")
-                    .orDefault("")
-                    .message());
+            try {
+                this.accountService.openSession(player, this.accountService.getOrCreate(player));
+                player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
+                        .translate(player, "info.logged_in")
+                        .orDefault("")
+                        .message());
+            } catch (LogginException ex) {
+                ex.getPublicMessage().ifPresent(player::sendMessage);
+            }
             return;
         }
 
         //Logging the player out
-        LoginManager.reset(player);
+        this.accountService.reset(player);
         this.addLogin_(new Login(this,player));
     }
 
@@ -108,12 +113,12 @@ public class JavaSessionHandler extends SessionHandler {
             this.player_ = player;
 
             //SETTING ACCOUNT
-            boolean exists = this.handler_.accountRepository.exists(player);
-            this.account_ = this.handler_.accountRepository.retrieve(player);
+            boolean exists = this.handler_.accountService.exists(player);
+            this.account_ = this.handler_.accountService.getOrCreate(player);
 
             //SETTING MODE
             LoginMode mode;
-            if (this.handler_.accountRepository.exists(player)) {
+            if (exists) {
                 if (this.account_.hasJava()) {
                     this.handler_.log(player.getName() + " already has an account.");
                     mode = LoginMode.EXISTING;
@@ -192,50 +197,62 @@ public class JavaSessionHandler extends SessionHandler {
                         this.showChatMessage_();
                         return;
                     }
-                    this.account_.setJava(true);
+                    this.account_.linkJava(this.player_.getUniqueId());
                     this.account_.save();
+                    this.login_(words[0]);
+                    return;
                 }
                 case NEW_IN_PLATFORM, EXISTING -> {
                     if (words.length != 1) { return; }
                     e.setCancelled(true);
-                    boolean match = this.account_.checkPassword(words[0]);
-                    if (match) { break; }
-
-                    this.tries_++;
-                    AccWardenConfig conf = this.handler_.plugin.CONFIG;
-                    String endPath = "fine";
-                    if (this.tries_ >= conf.failLoginOdd()) {
-                        int next = conf.failLoginOdd() + conf.failLoginWarn();
-                        if (this.tries_ >= next && conf.failLoginAccountLock()) {
-                            next += conf.failLoginLock();
-                            if (this.tries_ >= next && conf.failLoginLock() > 0) {
-                                this.account_.lock();
-                                break;
-                            } else { endPath = "warn"; }
-                        } else { endPath = "odd"; }
-                    }
-
-                    this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
-                            .translate(this.player_, "error.incorrect_password." + endPath)
-                            .orDefault("")
-                            .message());
-                    this.showChatMessage_();
+                    this.login_(words[0]);
                     return;
                 }
             }
-
-            if (!this.account_.hasJava()) {
-                this.account_.setJava(true);
-                this.account_.save();
-            }
+        }
+        private void login_(String password) {
             Bukkit.getScheduler().runTask(this.handler_.plugin, () -> {
-                LoginManager.logIn(this.player_, this.account_);   //Cannot change gameMode from async
-                this.handler_.removeLogin_(this);
-                this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
-                        .translate(this.player_, "info.logged_in")
-                        .orDefault("")
-                        .message());
+                try {
+                    Account account = this.handler_.accountService.login(this.player_, password);   //Cannot change gameMode from async
+                    if (!account.hasJava()) {
+                        account.linkJava(this.player_.getUniqueId());
+                        account.save();
+                    }
+                    this.handler_.removeLogin_(this);
+                    this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
+                            .translate(this.player_, "info.logged_in")
+                            .orDefault("")
+                            .message());
+                } catch (LogginException ex) {
+                    this.handleLoginException_(ex);
+                }
             });
+        }
+        private void handleLoginException_(LogginException ex) {
+            if (ex.getReason() != LogginException.Reason.INCORRECT_PASSWORD) {
+                ex.getPublicMessage().ifPresent(this.player_::sendMessage);
+                this.showChatMessage_();
+                return;
+            }
+
+            this.tries_++;
+            AccWardenConfig conf = this.handler_.plugin.CONFIG;
+            String endPath = "fine";
+            if (this.tries_ >= conf.failLoginOdd()) {
+                int next = conf.failLoginOdd() + conf.failLoginWarn();
+                if (this.tries_ >= next && conf.failLoginAccountLock()) {
+                    next += conf.failLoginLock();
+                    if (this.tries_ >= next && conf.failLoginLock() > 0) {
+                        this.account_.lock();
+                    } else { endPath = "warn"; }
+                } else { endPath = "odd"; }
+            }
+
+            this.player_.sendMessage(ChatColor.RED + this.handler_.plugin.getRunical()
+                    .translate(this.player_, "error.incorrect_password." + endPath)
+                    .orDefault("")
+                    .message());
+            this.showChatMessage_();
         }
         private void showChatMessage_() {
             String message = this.handler_.plugin.getRunical()

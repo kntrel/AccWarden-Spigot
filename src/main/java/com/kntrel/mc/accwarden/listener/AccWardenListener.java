@@ -2,7 +2,7 @@ package com.kntrel.mc.accwarden.listener;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountRepository;
+import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.account.Platform;
 import com.kntrel.mc.accwarden.session.*;
 import org.bukkit.ChatColor;
@@ -18,7 +18,7 @@ public final class AccWardenListener implements Listener {
 
     //FIELDS
     private final AccWarden plugin_;
-    private final AccountRepository accountRepository_;
+    private final AccountService accountService_;
     private final SessionHolder sessionHolder_;
     private final JavaSessionHandler javaHandler_;
     private final BedrockSessionHandler bedrockHandler_;
@@ -26,14 +26,14 @@ public final class AccWardenListener implements Listener {
     //CONSTRUCTORS
     public AccWardenListener(AccWarden plugin) {
         this.plugin_ = plugin;
-        this.accountRepository_ = this.plugin_.getAccountRepository();
+        this.accountService_ = this.plugin_.getAccountService();
         this.sessionHolder_ = this.plugin_.getSessionHolder();;
         this.sessionHolder_.setLoggingLevel(Level.INFO);
-        this.javaHandler_ = new JavaSessionHandler(this.accountRepository_, this.sessionHolder_, this.plugin_);
+        this.javaHandler_ = new JavaSessionHandler(this.accountService_, this.sessionHolder_, this.plugin_);
         this.javaHandler_.setLoggingLevel(Level.INFO);
 
         if (plugin.isBedrockOn()) {
-            this.bedrockHandler_ = new BedrockSessionHandler(this.accountRepository_, this.sessionHolder_, this.plugin_);
+            this.bedrockHandler_ = new BedrockSessionHandler(this.accountService_, this.sessionHolder_, this.plugin_);
             this.bedrockHandler_.setLoggingLevel(Level.INFO);
         } else {
             this.bedrockHandler_ = null;
@@ -52,48 +52,48 @@ public final class AccWardenListener implements Listener {
     @EventHandler
     void OnPlayerQuit(PlayerQuitEvent e) {
         Player player = e.getPlayer();
-        if (!LoginManager.isLogged(player)) { return; }
-        if (!this.accountRepository_.exists(player)) { return; }
-        Account account = this.accountRepository_.retrieve(player);
+        if (!this.accountService_.isLogged(player)) { return; }
         Platform platform = (this.plugin_.isBedrockOn() && BedrockSessionHandler.isBedrock(player)) ? Platform.BEDROCK : Platform.JAVA;
+        if (!this.accountService_.exists(player, platform)) { return; }
+        Account account = this.accountService_.get(player, platform).orElseThrow();
         this.sessionHolder_.openNew(account, player, platform);
     }
 
     @EventHandler
     void OnPlayerMove(PlayerMoveEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.setCancelled(true);
     }
 
     @EventHandler
     void OnPlayerOpenInventory(InventoryOpenEvent e) {
         if (!(e.getPlayer() instanceof Player player)) { return; }
-        if (LoginManager.isLogged(player)) { return; }
+        if (this.accountService_.isLogged(player)) { return; }
         player.closeInventory();
         e.setCancelled(true);
     }
 
     @EventHandler
     void OnPlayerInteract(PlayerInteractEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.setCancelled(true);
     }
 
     @EventHandler
     void OnPlayerInteractEntity(PlayerInteractEntityEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.setCancelled(true);
     }
 
     @EventHandler
     void OnPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     void OnPlayerUseChat(AsyncPlayerChatEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getRunical()
                 .translate(e.getPlayer(), "error.not_allowed.send_message")
                 .orDefault("")
@@ -103,7 +103,7 @@ public final class AccWardenListener implements Listener {
 
     @EventHandler
     void OnPlayerIssueCommand(PlayerCommandPreprocessEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getRunical()
                 .translate(e.getPlayer(), "error.not_allowed.issue_command")
                 .orDefault("")
@@ -113,7 +113,7 @@ public final class AccWardenListener implements Listener {
 
     @EventHandler
     void onPlayerDropItem(PlayerDropItemEvent e) {
-        if (LoginManager.isLogged(e.getPlayer())) { return; }
+        if (this.accountService_.isLogged(e.getPlayer())) { return; }
         e.setCancelled(true);
     }
 }

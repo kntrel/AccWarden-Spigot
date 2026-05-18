@@ -1,12 +1,12 @@
 package com.kntrel.mc.accwarden;
 
-import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
+import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.command.AccountCommand;
-import com.kntrel.mc.accwarden.io.database.DataBase;
 import com.kntrel.mc.accwarden.listener.AccWardenListener;
 import com.kntrel.mc.accwarden.listener.AccountLinker;
-import com.kntrel.mc.accwarden.session.LoginManager;
+import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
+import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
@@ -15,7 +15,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
+import java.nio.file.Path;
 
 public final class AccWarden extends JavaPlugin {
 
@@ -24,8 +25,8 @@ public final class AccWarden extends JavaPlugin {
 
     //FIELDS
     public AccWardenConfig CONFIG = AccWardenConfig.DEFAULT;
-    private final DataBase dataBase_ = new DataBase();
-    private AccountRepository accountRepository_ = null;
+    private SQLiteDatabase sqliteDatabase_ = null;
+    private AccountService accountService_ = null;
     private SessionHolder sessionHolder_ = null;
     private Runical runical_ = null;
     private boolean bedrockOn_ = false;
@@ -52,22 +53,13 @@ public final class AccWarden extends JavaPlugin {
         );
 
         //Database setup
-        this.dataBase_.setFilePath(pluginPath + "/database.db");
-        this.dataBase_.setUp();
-        try {
-            this.dataBase_.executeSQL(new String(this.getResource("dbSetup.sql").readAllBytes(), StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        this.sqliteDatabase_ = SQLiteDatabaseInitializer.openDatabase(this, Path.of(pluginPath, "database.db"));
 
         //Accounts and sessions setup
-        this.dataBase_.addEntity(Account.class, new Account.Parser(), "accounts");
-        this.accountRepository_ = new AccountRepository(this, this.dataBase_);
-        this.accountRepository_.setSizes(this.CONFIG.passwordMinSize(), this.CONFIG.passwordMaxSize());
+        this.accountService_ = AccountService.create(this);
         this.sessionHolder_ = new SessionHolder(this);
         this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
         this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions());
-        LoginManager.setUp(this);
 
         //Floodgate setup
         if (Bukkit.getServer().getPluginManager().getPlugin("floodgate") != null) {
@@ -98,14 +90,25 @@ public final class AccWarden extends JavaPlugin {
             this.runical_.close();
             this.runical_ = null;
         }
+        if (this.sqliteDatabase_ != null) {
+            try {
+                this.sqliteDatabase_.close();
+            } catch (SQLException e) {
+                this.getLogger().warning("Failed to close SQLite database: " + e.getMessage());
+            }
+            this.sqliteDatabase_ = null;
+        }
     }
 
     //GETTERS
-    public DataBase getDataBase() {
-        return this.dataBase_;
+    public SQLiteDatabase getSQLiteDatabase() {
+        return this.sqliteDatabase_;
     }
     public AccountRepository getAccountRepository() {
-        return this.accountRepository_;
+        return this.accountService_;
+    }
+    public AccountService getAccountService() {
+        return this.accountService_;
     }
     public SessionHolder getSessionHolder() {
         return this.sessionHolder_;

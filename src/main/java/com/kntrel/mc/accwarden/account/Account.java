@@ -4,25 +4,19 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
-import com.kntrel.mc.accwarden.io.database.DataBaseParser;
-import com.kntrel.mc.accwarden.io.database.Enitty;
-
 import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
-public class Account implements Enitty {
+public class Account {
 
     //FIELDS
-    private final UUID id_;
     private final String name_;
     private AccountRepository repository_;
-    private boolean javaLogged_ = false;
-    private boolean bedrockLogged_ = false;
+    private UUID javaUuid_ = null;
+    private UUID bedrockUuid_ = null;
     private LocalDateTime joined_ = LocalDateTime.now();
     private LocalDateTime lastLogged_ = LocalDateTime.now();
     private byte[] hash_ = new byte[0];
@@ -30,8 +24,7 @@ public class Account implements Enitty {
     private int minLength_ = 0, maxLength_ = 12;
 
     //CONSTRUCTORS
-    Account(UUID id, String name, AccountRepository repository) {
-        this.id_ = id;
+    protected Account(String name, AccountRepository repository) {
         this.name_ = name;
         this.repository_ = repository;
 
@@ -40,48 +33,72 @@ public class Account implements Enitty {
             this.salt_[i] = (byte) random.nextInt(97, 123);
         }
     }
-    Account(String id, String name, AccountRepository repository){
-        this(UUID.fromString(id), name, repository);
-    }
 
     //Setters
-    public void setJava(boolean b) {
-        this.javaLogged_ = b;
+    public void linkJava(UUID uuid) {
+        if (uuid == null) {
+            throw new IllegalArgumentException("Java UUID cannot be null.");
+        }
+        this.javaUuid_ = uuid;
     }
-    public void setBedrock(boolean b) {
-        this.bedrockLogged_ = b;
+    public void linkBedrock(UUID uuid) {
+        if (uuid == null) {
+            throw new IllegalArgumentException("Bedrock UUID cannot be null.");
+        }
+        this.bedrockUuid_ = uuid;
     }
     public void setSizes(int min, int max) {
         this.minLength_ = min; this.maxLength_ = max;
     }
-    private void setSalt(String salt) {
+    protected void setSalt(String salt) {
         this.salt_ = salt.getBytes(StandardCharsets.UTF_8);
     }
-    private void setHash(String hash) {
+    protected void setHash(String hash) {
         this.hash_ = hash.getBytes(StandardCharsets.UTF_8);
     }
-    private void setJoined(LocalDateTime dateTime) {
+    protected void setJoined(LocalDateTime dateTime) {
         this.joined_ = dateTime;
+    }
+    protected void setLastLogged(LocalDateTime dateTime) {
+        this.lastLogged_ = dateTime;
     }
     void setRepository(AccountRepository repository) {
         this.repository_ = repository;
     }
+    protected void load(
+            UUID javaUuid,
+            UUID bedrockUuid,
+            String salt,
+            String hashedPassword,
+            LocalDateTime joined,
+            LocalDateTime lastLogged
+    ) {
+        this.javaUuid_ = javaUuid;
+        this.bedrockUuid_ = bedrockUuid;
+        this.setSalt(salt);
+        this.setHash(hashedPassword);
+        this.setJoined(joined == null ? LocalDateTime.now() : joined);
+        this.setLastLogged(lastLogged == null ? this.joined_ : lastLogged);
+    }
+    public void markLoggedIn() {
+        this.lastLogged_ = LocalDateTime.now();
+    }
 
     //GETTERS
-    public UUID getId() {
-        return this.id_;
-    }
     public String getName() {
         return this.name_;
     }
     public LocalDateTime whenJoined() {
         return this.joined_;
     }
+    public LocalDateTime whenLastLogged() {
+        return this.lastLogged_;
+    }
     public boolean hasJava() {
-        return this.javaLogged_;
+        return this.javaUuid_ != null;
     }
     public boolean hasBedrock() {
-        return this.bedrockLogged_;
+        return this.bedrockUuid_ != null;
     }
     public boolean hasPlatform(Platform platform) {
         return switch (platform) {
@@ -92,6 +109,24 @@ public class Account implements Enitty {
     public boolean isLocked() { return false; }
     public AccountRepository getRepository() {
         return this.repository_;
+    }
+    public Optional<UUID> getJavaUuid() {
+        return Optional.ofNullable(this.javaUuid_);
+    }
+    public Optional<UUID> getBedrockUuid() {
+        return Optional.ofNullable(this.bedrockUuid_);
+    }
+    public Optional<UUID> getPlatformUuid(Platform platform) {
+        return switch (platform) {
+            case JAVA -> this.getJavaUuid();
+            case BEDROCK -> this.getBedrockUuid();
+        };
+    }
+    public String getSalt() {
+        return new String(this.salt_, StandardCharsets.UTF_8);
+    }
+    public String getHashedPassword() {
+        return new String(this.hash_, StandardCharsets.UTF_8);
     }
 
     //METHODS
@@ -123,38 +158,12 @@ public class Account implements Enitty {
     @Override
     public String toString() {
         return
-                "UUID: " + this.id_.toString()
+                "Java UUID: " + this.javaUuid_
+                + "\nBedrock UUID: " + this.bedrockUuid_
                 + "\nSalt: " + new String(this.salt_,StandardCharsets.UTF_8)
-                + "\nJava: " + this.javaLogged_
-                + "\nBedrock:" + this.bedrockLogged_
+                + "\nJava: " + this.hasJava()
+                + "\nBedrock:" + this.hasBedrock()
                 + "\nJoined on: " + this.joined_.toString()
                 + "\nLast joined on: " + this.lastLogged_.toString();
-    }
-
-    //CLASSES
-    public static class Parser implements DataBaseParser<Account> {
-
-        @Override
-        public Account toEntity(ResultSet src) throws SQLException {
-            Account acc = new Account(src.getString("uuid"), src.getString("name"),null);
-            acc.setHash(src.getString("hashed_password"));
-            acc.setSalt(src.getString("salt"));
-            acc.setJava(src.getBoolean("java"));
-            acc.setBedrock(src.getBoolean("bedrock"));
-            acc.setJoined(src.getTimestamp("joined").toLocalDateTime());
-            return acc;
-        }
-
-        @Override
-        public Map<String,Object> toRow(Account src) {
-            return Map.ofEntries(
-                Map.entry("name", src.getName()),
-                Map.entry("salt", new String(src.salt_,StandardCharsets.UTF_8)),
-                Map.entry("hashed_password", new String(src.hash_,StandardCharsets.UTF_8)),
-                Map.entry("java", src.hasJava()),
-                Map.entry("bedrock", src.hasBedrock()),
-                Map.entry("last_login", src.lastLogged_)
-            );
-        }
     }
 }

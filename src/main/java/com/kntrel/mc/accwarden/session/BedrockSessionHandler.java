@@ -3,7 +3,8 @@ package com.kntrel.mc.accwarden.session;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.AccWardenConfig;
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountRepository;
+import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.account.exception.LogginException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import org.bukkit.ChatColor;
@@ -39,8 +40,8 @@ public class BedrockSessionHandler extends SessionHandler {
     private final LinkedList<BedrockSessionHandler.Login> logins_ = new LinkedList<>();
     private BedrockSessionHandler.Listener listener_;
 
-    public BedrockSessionHandler(AccountRepository repository, SessionHolder sessionHolder, AccWarden plugin) {
-        super(repository, sessionHolder, plugin);
+    public BedrockSessionHandler(AccountService accountService, SessionHolder sessionHolder, AccWarden plugin) {
+        super(accountService, sessionHolder, plugin);
     }
 
     //METHODS
@@ -48,20 +49,24 @@ public class BedrockSessionHandler extends SessionHandler {
     public void handle(Player player) {
         FloodgatePlayer fgPlayer = this.floodgateApi_.getPlayer(player.getUniqueId());
         if (fgPlayer == null) {
-            LoginManager.reset(player);
+            this.accountService.reset(player);
             return;
         }
 
-        Account account = this.accountRepository.retrieve(player);
+        Account account = this.accountService.getOrCreate(player);
 
         LoginMode mode;
         if (account.hasBedrock()) {
-            this.log("Bedrock player with UUID '" + account.getId() + "' is already registered with Bedrock access. Logging in.");
-            LoginManager.logIn(player,account);
-            player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
-                    .translate(player, "info.logged_in")
-                    .orDefault("")
-                    .message());
+            this.log("Bedrock player with UUID '" + player.getUniqueId() + "' is already registered with Bedrock access. Logging in.");
+            try {
+                this.accountService.openSession(player, account);
+                player.sendMessage(ChatColor.GREEN + this.plugin.getRunical()
+                        .translate(player, "info.logged_in")
+                        .orDefault("")
+                        .message());
+            } catch (LogginException ex) {
+                ex.getPublicMessage().ifPresent(player::sendMessage);
+            }
             return;
         } else if (account.hasJava()) {
             mode = LoginMode.NEW_IN_PLATFORM;
@@ -69,7 +74,7 @@ public class BedrockSessionHandler extends SessionHandler {
             mode = LoginMode.NEW;
         }
 
-        LoginManager.reset(player);
+        this.accountService.reset(player);
         this.addLogin_(new Login(this, player, mode));
     }
 
@@ -114,13 +119,17 @@ public class BedrockSessionHandler extends SessionHandler {
             if (!match) {
                 BedrockSessionHandler.this.sendErrorForm_(player, "Passwords don't match.", r -> BedrockSessionHandler.this.sendRegisterForm_(player,account,mode));
             } else {
-                account.setBedrock(true);
+                account.linkBedrock(player.getUniqueId());
                 account.save();
-                LoginManager.logIn(player, account);
-                player.sendMessage(ChatColor.GREEN + BedrockSessionHandler.this.plugin.getRunical()
-                        .translate(player, "info.logged_in")
-                        .orDefault("")
-                        .message());
+                try {
+                    BedrockSessionHandler.this.accountService.login(player, pw1);
+                    player.sendMessage(ChatColor.GREEN + BedrockSessionHandler.this.plugin.getRunical()
+                            .translate(player, "info.logged_in")
+                            .orDefault("")
+                            .message());
+                } catch (LogginException ex) {
+                    ex.getPublicMessage().ifPresent(player::sendMessage);
+                }
             }
         };
 
@@ -152,7 +161,7 @@ public class BedrockSessionHandler extends SessionHandler {
         Login(BedrockSessionHandler handler, Player player, LoginMode mode) {
             this.handler_ = handler;
             this.player_ = player;
-            this.account_ = this.handler_.accountRepository.retrieve(player);
+            this.account_ = this.handler_.accountService.getOrCreate(player);
             this.mode_ = mode;
         }
 
@@ -221,7 +230,9 @@ public class BedrockSessionHandler extends SessionHandler {
                         return;
                     }
 
-                    this.login_();
+                    this.account_.linkBedrock(this.player_.getUniqueId());
+                    this.account_.save();
+                    this.login_(pw1, false);
                 } : (f, s) -> {
                     CustomFormResponse response = f.parseResponse(s);
                     if (!response.isCorrect()) {
@@ -230,40 +241,7 @@ public class BedrockSessionHandler extends SessionHandler {
                     }
 
                     String pw = response.getInput(1);
-                    boolean match = this.account_.checkPassword(pw);
-                    if (match) {
-                        this.login_();
-                        return;
-                    }
-
-                    this.tries_++;
-                    String errorBasePath = "error.incorrect_password.";
-                    AccWardenConfig conf = this.handler_.plugin.CONFIG;
-                    String errorMessage = this.handler_.plugin.getRunical()
-                            .translate(this.player_, errorBasePath + "fine")
-                            .orDefault("")
-                            .message();
-                    if (this.tries_ >= conf.failLoginOdd()) {
-                        int next = conf.failLoginOdd() + conf.failLoginWarn();
-                        if (this.tries_ >= next && conf.failLoginAccountLock()) {
-                            next += conf.failLoginLock();
-                            if (this.tries_ >= next && conf.failLoginLock() > 0) {
-                                this.account_.lock();
-                            } else {
-                                errorMessage = this.handler_.plugin.getRunical()
-                                        .translate(this.player_, errorBasePath + "warn")
-                                        .orDefault("")
-                                        .message();
-                            }
-                        } else {
-                            errorMessage = this.handler_.plugin.getRunical()
-                                    .translate(this.player_, errorBasePath + "odd")
-                                    .orDefault("")
-                                    .message();
-                        }
-                    }
-
-                    this.sendErrorMessage_(errorMessage);
+                    this.login_(pw, true);
                 }
             );
 
@@ -302,14 +280,61 @@ public class BedrockSessionHandler extends SessionHandler {
                    .orDefault("")
                    .message());
         }
-        private void login_() {
-            this.account_.setBedrock(true);
-            this.account_.save();
-            LoginManager.logIn(this.player_,this.account_);
-            this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
-                    .translate(this.player_, "info.logged_in")
+        private void login_(String password, boolean saveBedrockOnSuccess) {
+            try {
+                Account account = this.handler_.accountService.login(this.player_, password);
+                if (saveBedrockOnSuccess && !account.hasBedrock()) {
+                    account.linkBedrock(this.player_.getUniqueId());
+                    account.save();
+                }
+                this.player_.sendMessage(ChatColor.GREEN + this.handler_.plugin.getRunical()
+                        .translate(this.player_, "info.logged_in")
+                        .orDefault("")
+                        .message());
+            } catch (LogginException ex) {
+                this.handleLoginException_(ex);
+            }
+        }
+        private void handleLoginException_(LogginException ex) {
+            if (ex.getReason() != LogginException.Reason.INCORRECT_PASSWORD) {
+                ex.getPublicMessage().ifPresentOrElse(
+                        this::sendErrorMessage_,
+                        () -> this.sendErrorMessage_(this.handler_.plugin.getRunical()
+                                .translate(this.player_, "error.kicked.not_logged")
+                                .orDefault("")
+                                .message())
+                );
+                return;
+            }
+
+            this.tries_++;
+            String errorBasePath = "error.incorrect_password.";
+            AccWardenConfig conf = this.handler_.plugin.CONFIG;
+            String errorMessage = this.handler_.plugin.getRunical()
+                    .translate(this.player_, errorBasePath + "fine")
                     .orDefault("")
-                    .message());
+                    .message();
+            if (this.tries_ >= conf.failLoginOdd()) {
+                int next = conf.failLoginOdd() + conf.failLoginWarn();
+                if (this.tries_ >= next && conf.failLoginAccountLock()) {
+                    next += conf.failLoginLock();
+                    if (this.tries_ >= next && conf.failLoginLock() > 0) {
+                        this.account_.lock();
+                    } else {
+                        errorMessage = this.handler_.plugin.getRunical()
+                                .translate(this.player_, errorBasePath + "warn")
+                                .orDefault("")
+                                .message();
+                    }
+                } else {
+                    errorMessage = this.handler_.plugin.getRunical()
+                            .translate(this.player_, errorBasePath + "odd")
+                            .orDefault("")
+                            .message();
+                }
+            }
+
+            this.sendErrorMessage_(errorMessage);
         }
     }
 

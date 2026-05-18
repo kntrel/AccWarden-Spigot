@@ -107,7 +107,12 @@ public final class SessionHolder {
     }
     public void openNew(Account account, InetSocketAddress address, Platform platform) {
         if (this.holdTime_ < 1) { return; }
-        UUID id = account.getId();
+        Optional<UUID> platformId = account.getPlatformUuid(platform);
+        if (platformId.isEmpty()) {
+            this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
+            return;
+        }
+        UUID id = platformId.get();
 
         BukkitRunnable closer = new BukkitRunnable() {
             private UUID id_ = id;
@@ -115,7 +120,7 @@ public final class SessionHolder {
             @Override
             public void run() {
                 SessionHolder.this.dispose(id_);
-                SessionHolder.this.log_("Closed session for UUID '" + account.getId() + "' after " + SessionHolder.this.holdTime_ + " seconds.");
+                SessionHolder.this.log_("Closed session for UUID '" + id_ + "' after " + SessionHolder.this.holdTime_ + " seconds.");
             }
         };
 
@@ -124,7 +129,7 @@ public final class SessionHolder {
 
         closer.runTaskLater(this.plugin_, ((long) this.holdTime_) * 20);
 
-        this.log_("Session for UUID " + account.getId() + " open.");
+        this.log_("Session for UUID " + id + " open.");
 
     }
     public void openNew(Account account, Player player, Platform platform) {

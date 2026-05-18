@@ -93,6 +93,6 @@ public class AccountCommand {
                     .orDefault("")
                     .message());
         }
-        return this.accountRepository_.retrieve(player);
+        return this.accountRepository_.get(player).orElseThrow();
     }
 }
