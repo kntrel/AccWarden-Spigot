@@ -1,7 +1,7 @@
 package com.kntrel.mc.accwarden.event;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.Platform;
+import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.HandlerList;

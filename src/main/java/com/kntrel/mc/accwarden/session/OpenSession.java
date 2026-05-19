@@ -1,7 +1,7 @@
 package com.kntrel.mc.accwarden.session;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.Platform;
+import com.kntrel.mc.accwarden.platform.Platform;
 
 import java.net.InetSocketAddress;
 

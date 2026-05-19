@@ -7,7 +7,13 @@ import com.kntrel.mc.accwarden.listener.AccWardenListener;
 import com.kntrel.mc.accwarden.listener.AccountLinker;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
+import com.kntrel.mc.accwarden.platform.BedrockPlatformAdapter;
+import com.kntrel.mc.accwarden.platform.FloodgatePlatformRouter;
+import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
+import com.kntrel.mc.accwarden.platform.JavaPlatformAdapter;
+import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import com.kntrel.mc.accwarden.session.SessionHolder;
+import com.kntrel.mc.accwarden.session.SessionService;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
@@ -17,6 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.sql.SQLException;
 import java.nio.file.Path;
+import java.util.logging.Level;
 
 public final class AccWarden extends JavaPlugin {
 
@@ -28,6 +35,8 @@ public final class AccWarden extends JavaPlugin {
     private SQLiteDatabase sqliteDatabase_ = null;
     private AccountService accountService_ = null;
     private SessionHolder sessionHolder_ = null;
+    private SessionService sessionService_ = null;
+    private PlatformRouter platformRouter_ = null;
     private Runical runical_ = null;
     private boolean bedrockOn_ = false;
 
@@ -60,11 +69,21 @@ public final class AccWarden extends JavaPlugin {
         this.sessionHolder_ = new SessionHolder(this);
         this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
         this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions());
+        this.sessionHolder_.setLoggingLevel(Level.INFO);
+        this.sessionService_ = new SessionService(this, this.accountService_, this.sessionHolder_);
 
         //Floodgate setup
+        JavaPlatformAdapter javaAdapter = new JavaPlatformAdapter(this.sessionService_, this);
+        javaAdapter.setLoggingLevel(Level.INFO);
         if (Bukkit.getServer().getPluginManager().getPlugin("floodgate") != null) {
             this.bedrockOn_ = true;
+            BedrockPlatformAdapter bedrockAdapter = new BedrockPlatformAdapter(this.sessionService_, this);
+            bedrockAdapter.setLoggingLevel(Level.INFO);
+            this.platformRouter_ = new FloodgatePlatformRouter(javaAdapter, bedrockAdapter);
+        } else {
+            this.platformRouter_ = new JavaOnlyPlatformRouter(javaAdapter);
         }
+        this.sessionService_.setRouter(this.platformRouter_);
 
         //Listener setup
         this.getServer().getPluginManager().registerEvents(new AccWardenListener(this), this);
@@ -112,6 +131,12 @@ public final class AccWarden extends JavaPlugin {
     }
     public SessionHolder getSessionHolder() {
         return this.sessionHolder_;
+    }
+    public SessionService getSessionService() {
+        return this.sessionService_;
+    }
+    public PlatformRouter getPlatformRouter() {
+        return this.platformRouter_;
     }
     public Runical getRunical() {
         return this.runical_;

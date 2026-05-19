@@ -1,7 +1,7 @@
 package com.kntrel.mc.accwarden.session;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.Platform;
+import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -70,13 +70,28 @@ public final class SessionHolder {
     public void dispose(Player player) {
         this.dispose(player.getUniqueId());
     }
+    public void open(Account account, InetSocketAddress address, Platform platform) {
+        Optional<UUID> platformId = account.getPlatformUuid(platform);
+        if (platformId.isEmpty()) {
+            this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
+            return;
+        }
+        UUID id = platformId.get();
+        this.dispose(id);
+        this.sessions_.put(id, new OpenSession(account, address, platform));
+        this.log_("Session for UUID " + id + " open.");
+    }
+    public void open(Account account, Player player, Platform platform) {
+        this.open(account, player.getAddress(), platform);
+    }
     public boolean claim(UUID uuid, InetSocketAddress address, Platform platform) {
-        OpenSession session = this.sessions_.get(uuid);
-        if (session == null) {
+        Optional<SessionEntry> entry = this.findSession_(uuid, platform);
+        if (entry.isEmpty()) {
             this.log_("No session opened for UUID " + uuid.toString());
             return false;
         }
-        this.dispose(uuid);
+        OpenSession session = entry.get().session();
+        this.dispose(entry.get().key());
         if (!session.address().getAddress().equals(address.getAddress())) {
             this.log_("Found an open session for UUID " + uuid.toString() + ", but the IP address doesn't match");
             return false;
@@ -106,13 +121,14 @@ public final class SessionHolder {
         return this.claim(player.getUniqueId(), player.getAddress(), platform);
     }
     public void openNew(Account account, InetSocketAddress address, Platform platform) {
-        if (this.holdTime_ < 1) { return; }
         Optional<UUID> platformId = account.getPlatformUuid(platform);
         if (platformId.isEmpty()) {
             this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
             return;
         }
         UUID id = platformId.get();
+        this.dispose(id);
+        if (this.holdTime_ < 1) { return; }
 
         BukkitRunnable closer = new BukkitRunnable() {
             private UUID id_ = id;
@@ -143,4 +159,25 @@ public final class SessionHolder {
     private void log_(String message) {
         this.log_(message, this.loggingLevel_);
     }
+    private Optional<SessionEntry> findSession_(UUID uuid, Platform platform) {
+        OpenSession session = this.sessions_.get(uuid);
+        if (session != null) {
+            return Optional.of(new SessionEntry(uuid, session));
+        }
+        if (!this.crossPlatformSessions_) {
+            return Optional.empty();
+        }
+        return this.sessions_
+                .entrySet()
+                .stream()
+                .filter(entry -> entry.getValue()
+                        .account()
+                        .getPlatformUuid(platform)
+                        .filter(uuid::equals)
+                        .isPresent())
+                .findFirst()
+                .map(entry -> new SessionEntry(entry.getKey(), entry.getValue()));
+    }
+
+    private record SessionEntry(UUID key, OpenSession session) {}
 }
