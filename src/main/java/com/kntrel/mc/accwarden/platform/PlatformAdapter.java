@@ -1,20 +1,15 @@
 package com.kntrel.mc.accwarden.platform;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountService;
 import org.bukkit.entity.Player;
 
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface PlatformAdapter {
 
     Platform getPlatform();
 
-    default Optional<Account> findLinkedAccount(Player player, AccountService accountService) {
-        return Optional.empty();
-    }
+    CompletableFuture<Authentication> authenticate(Player player);
 
-    void authenticate(Player player, Account account);
-
-    void collectPassword(Player player, Account account);
+    CompletableFuture<Account> register(Player player);
 }

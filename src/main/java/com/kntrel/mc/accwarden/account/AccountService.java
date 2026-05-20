@@ -6,7 +6,7 @@ import com.kntrel.mc.accwarden.persistence.domain.SQLiteAccountRepository;
 import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.jspecify.annotations.NonNull;
+import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -98,12 +98,12 @@ public final class AccountService implements AccountRepository {
         account.getBedrockUuid().map(Bukkit::getPlayer).ifPresent(this::kickDeletedAccount);
     }
 
-    @NonNull
+    @Nonnull
     public Account login(Player player, String password) throws LogginException {
         return this.login(player, Platform.JAVA, password);
     }
 
-    @NonNull
+    @Nonnull
     public Account login(Player player, Platform platform, String password) throws LogginException {
         Account account = this.get(player, platform).orElseThrow(() -> new LogginException(LogginException.Reason.ACCOUNT_NOT_FOUND));
         if (account.isLocked()) {

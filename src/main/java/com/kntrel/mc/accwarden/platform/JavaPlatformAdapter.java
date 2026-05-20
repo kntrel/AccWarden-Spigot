@@ -3,10 +3,9 @@ package com.kntrel.mc.accwarden.platform;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.AccWardenConfig;
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.exception.LogginException;
+import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
-import com.kntrel.mc.accwarden.session.SessionService;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -21,23 +20,25 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 public final class JavaPlatformAdapter implements PlatformAdapter {
 
-    private enum LoginMode { NEW, NEW_IN_PLATFORM, EXISTING }
+    private enum LoginMode { NEW, EXISTING }
 
     private static final int REFRESH_RATE = 40;
 
-    private final SessionService sessionService_;
+    private final AccountService accountService_;
     private final AccWarden plugin_;
     private final LinkedList<Login> logins_ = new LinkedList<>();
     private Listener listener_;
     private BukkitRunnable informationRefresher_ = null;
     private Level loggingLevel_ = Level.FINEST;
 
-    public JavaPlatformAdapter(SessionService sessionService, AccWarden plugin) {
-        this.sessionService_ = sessionService;
+    public JavaPlatformAdapter(AccountService accountService, AccWarden plugin) {
+        this.accountService_ = accountService;
         this.plugin_ = plugin;
     }
 
@@ -47,13 +48,23 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
     }
 
     @Override
-    public void authenticate(Player player, Account account) {
-        this.addLogin_(new Login(this, player, account, account.hasJava() ? LoginMode.EXISTING : LoginMode.NEW_IN_PLATFORM));
+    public CompletableFuture<Authentication> authenticate(Player player) {
+        Optional<Account> account = this.accountService_.get(player, Platform.JAVA);
+        if (account.isEmpty()) {
+            return CompletableFuture.completedFuture(Authentication.unexistent());
+        }
+
+        CompletableFuture<Authentication> future = new CompletableFuture<>();
+        this.addLogin_(new Login(this, player, account.get(), LoginMode.EXISTING, future, null));
+        return future;
     }
 
     @Override
-    public void collectPassword(Player player, Account account) {
-        this.addLogin_(new Login(this, player, account, LoginMode.NEW));
+    public CompletableFuture<Account> register(Player player) {
+        CompletableFuture<Account> future = new CompletableFuture<>();
+        Account account = this.accountService_.create(player, Platform.JAVA);
+        this.addLogin_(new Login(this, player, account, LoginMode.NEW, null, future));
+        return future;
     }
 
     public void setLoggingLevel(Level loggingLevel) {
@@ -73,14 +84,19 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
 
     private void removeLogin_(Login login) {
         this.logins_.remove(login);
-        if (this.logins_.isEmpty()) {
-            if (!this.informationRefresher_.isCancelled()) {
-                this.informationRefresher_.cancel();
-            }
-            if (this.listener_ != null) {
-                HandlerList.unregisterAll(this.listener_);
-                this.listener_ = null;
-            }
+        this.stopIfIdle_();
+    }
+
+    private void stopIfIdle_() {
+        if (!this.logins_.isEmpty()) {
+            return;
+        }
+        if (this.informationRefresher_ != null && !this.informationRefresher_.isCancelled()) {
+            this.informationRefresher_.cancel();
+        }
+        if (this.listener_ != null) {
+            HandlerList.unregisterAll(this.listener_);
+            this.listener_ = null;
         }
     }
 
@@ -104,13 +120,24 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
         private final Player player_;
         private final Account account_;
         private final LoginMode mode_;
+        private final CompletableFuture<Authentication> authenticationFuture_;
+        private final CompletableFuture<Account> registrationFuture_;
         private int tries_ = 0;
 
-        Login(JavaPlatformAdapter adapter, Player player, Account account, LoginMode mode) {
+        Login(
+                JavaPlatformAdapter adapter,
+                Player player,
+                Account account,
+                LoginMode mode,
+                CompletableFuture<Authentication> authenticationFuture,
+                CompletableFuture<Account> registrationFuture
+        ) {
             this.adapter_ = adapter;
             this.player_ = player;
             this.account_ = account;
             this.mode_ = mode;
+            this.authenticationFuture_ = authenticationFuture;
+            this.registrationFuture_ = registrationFuture;
             this.logMode_();
             this.refresh();
             this.showChatMessage_();
@@ -119,7 +146,6 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
         void refresh() {
             String basePath = "login.java." + switch (this.mode_) {
                 case NEW -> "new";
-                case NEW_IN_PLATFORM -> "new_in_java";
                 case EXISTING -> "existing";
             } + ".";
 
@@ -156,12 +182,12 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
                     event.setCancelled(true);
                     this.register_(words[0], words[1]);
                 }
-                case NEW_IN_PLATFORM, EXISTING -> {
+                case EXISTING -> {
                     if (words.length != 1) {
                         return;
                     }
                     event.setCancelled(true);
-                    this.login_(words[0]);
+                    this.authenticate_(words[0]);
                 }
             }
         }
@@ -183,6 +209,7 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
                         .argument("max", ex.getMaxLength())
                         .orDefault("")
                         .message());
+                this.showChatMessage_();
                 return;
             } catch (PasswordTooShortException ex) {
                 this.player_.sendMessage(ChatColor.RED + this.adapter_.plugin_.getRunical()
@@ -190,45 +217,30 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
                         .argument("min", ex.getMinLength())
                         .orDefault("")
                         .message());
-                return;
-            }
-
-            Bukkit.getScheduler().runTask(this.adapter_.plugin_, () -> {
-                try {
-                    this.adapter_.sessionService_.register(this.player_, Platform.JAVA, this.account_);
-                    this.adapter_.removeLogin_(this);
-                    this.adapter_.sessionService_.sendLoggedIn(this.player_);
-                } catch (LogginException ex) {
-                    this.handleLoginException_(ex);
-                }
-            });
-        }
-
-        private void login_(String password) {
-            Bukkit.getScheduler().runTask(this.adapter_.plugin_, () -> {
-                try {
-                    this.adapter_.sessionService_.authenticateWithPassword(
-                            this.player_,
-                            Platform.JAVA,
-                            this.account_,
-                            password,
-                            !this.account_.hasJava()
-                    );
-                    this.adapter_.removeLogin_(this);
-                    this.adapter_.sessionService_.sendLoggedIn(this.player_);
-                } catch (LogginException ex) {
-                    this.handleLoginException_(ex);
-                }
-            });
-        }
-
-        private void handleLoginException_(LogginException ex) {
-            if (ex.getReason() != LogginException.Reason.INCORRECT_PASSWORD) {
-                ex.getPublicMessage().ifPresent(this.player_::sendMessage);
                 this.showChatMessage_();
                 return;
             }
 
+            if (this.registrationFuture_ != null && this.registrationFuture_.complete(this.account_)) {
+                this.removeLater_();
+            }
+        }
+
+        private void authenticate_(String password) {
+            if (this.account_.isLocked()) {
+                this.completeAuthentication_(Authentication.rejected());
+                return;
+            }
+
+            if (!this.account_.checkPassword(password)) {
+                this.handleIncorrectPassword_();
+                return;
+            }
+
+            this.completeAuthentication_(Authentication.passed(this.account_));
+        }
+
+        private void handleIncorrectPassword_() {
             this.tries_++;
             AccWardenConfig conf = this.adapter_.plugin_.CONFIG;
             String endPath = "fine";
@@ -253,11 +265,29 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
             this.showChatMessage_();
         }
 
+        private void completeAuthentication_(Authentication authentication) {
+            if (this.authenticationFuture_ != null && this.authenticationFuture_.complete(authentication)) {
+                this.removeLater_();
+            }
+        }
+
+        private void cancel_() {
+            if (this.authenticationFuture_ != null) {
+                this.authenticationFuture_.complete(Authentication.rejected());
+            }
+            if (this.registrationFuture_ != null) {
+                this.registrationFuture_.cancel(false);
+            }
+        }
+
+        private void removeLater_() {
+            Bukkit.getScheduler().runTask(this.adapter_.plugin_, () -> this.adapter_.removeLogin_(this));
+        }
+
         private void showChatMessage_() {
             String message = this.adapter_.plugin_.getRunical()
                     .translate(this.player_, "login.java." + switch (this.mode_) {
                         case NEW -> "new";
-                        case NEW_IN_PLATFORM -> "new_in_java";
                         case EXISTING -> "existing";
                     } + ".chat")
                     .orDefault("")
@@ -271,7 +301,6 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
         private void logMode_() {
             switch (this.mode_) {
                 case NEW -> this.adapter_.log_(this.player_.getName() + " is connecting for the first time.");
-                case NEW_IN_PLATFORM -> this.adapter_.log_(this.player_.getName() + " already has an account. Never connected from Java before.");
                 case EXISTING -> this.adapter_.log_(this.player_.getName() + " already has an account.");
             }
         }
@@ -302,9 +331,11 @@ public final class JavaPlatformAdapter implements PlatformAdapter {
             while (iterator.hasNext()) {
                 Login login = iterator.next();
                 if (login.player_.equals(event.getPlayer())) {
+                    login.cancel_();
                     iterator.remove();
                 }
             }
+            this.adapter_.stopIfIdle_();
         }
     }
 }

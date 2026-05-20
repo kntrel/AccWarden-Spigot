@@ -3,7 +3,6 @@ package com.kntrel.mc.accwarden;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.command.AccountCommand;
-import com.kntrel.mc.accwarden.listener.AccWardenListener;
 import com.kntrel.mc.accwarden.listener.AccountLinker;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
@@ -73,11 +72,11 @@ public final class AccWarden extends JavaPlugin {
         this.sessionService_ = new SessionService(this, this.accountService_, this.sessionHolder_);
 
         //Floodgate setup
-        JavaPlatformAdapter javaAdapter = new JavaPlatformAdapter(this.sessionService_, this);
+        JavaPlatformAdapter javaAdapter = new JavaPlatformAdapter(this.accountService_, this);
         javaAdapter.setLoggingLevel(Level.INFO);
         if (Bukkit.getServer().getPluginManager().getPlugin("floodgate") != null) {
             this.bedrockOn_ = true;
-            BedrockPlatformAdapter bedrockAdapter = new BedrockPlatformAdapter(this.sessionService_, this);
+            BedrockPlatformAdapter bedrockAdapter = new BedrockPlatformAdapter(this.accountService_, this);
             bedrockAdapter.setLoggingLevel(Level.INFO);
             this.platformRouter_ = new FloodgatePlatformRouter(javaAdapter, bedrockAdapter);
         } else {
@@ -86,7 +85,7 @@ public final class AccWarden extends JavaPlugin {
         this.sessionService_.setRouter(this.platformRouter_);
 
         //Listener setup
-        this.getServer().getPluginManager().registerEvents(new AccWardenListener(this), this);
+        this.getServer().getPluginManager().registerEvents(new AccWardenGate(this), this);
         if (this.isBedrockOn() && this.CONFIG.playerNameAutoLinking()) {
             try {
                 this.getServer().getPluginManager().registerEvents(new AccountLinker(this), this);

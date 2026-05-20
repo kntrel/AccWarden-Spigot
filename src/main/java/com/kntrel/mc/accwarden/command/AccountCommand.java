@@ -2,7 +2,8 @@ package com.kntrel.mc.accwarden.command;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountRepository;
+import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import com.kntrel.mc.commvoker.bukkit.provided.annotation.Sender;
@@ -19,12 +20,12 @@ public class AccountCommand {
 
     //FIELDS
     private final AccWarden plugin_;
-    private final AccountRepository accountRepository_;
+    private final AccountService accountService_;
 
     //CONSTRUCTOR
     public AccountCommand(AccWarden accWardenInstance) {
         this.plugin_ = accWardenInstance;
-        this.accountRepository_ = this.plugin_.getAccountRepository();
+        this.accountService_ = this.plugin_.getAccountService();
     }
 
     //COMMANDS
@@ -77,6 +78,8 @@ public class AccountCommand {
                     .message());
         }
 
+        acc.save();
+
         return this.plugin_.getRunical()
                 .translate(player, "command.changePassword.success")
                 .orDefault("")
@@ -86,13 +89,14 @@ public class AccountCommand {
 
     //PRIVATE METHODS
     private Account getAccount_(FailTrigger failTrigger, Player player) throws FailedCommandException {
-        if (!this.accountRepository_.exists(player)) {
+        Platform platform = this.plugin_.getPlatformRouter().getPlatform(player);
+        if (!this.accountService_.exists(player, platform)) {
             failTrigger.fail(this.plugin_.getRunical()
                     .translate(player, "command.unexisting_account")
                     .argument("player", player.getName())
                     .orDefault("")
                     .message());
         }
-        return this.accountRepository_.get(player).orElseThrow();
+        return this.accountService_.get(player, platform).orElseThrow();
     }
 }

@@ -47,7 +47,7 @@ command:
 error:
   kicked:
     not_registered: "Debes registrarte con una contraseña para jugar en este servidor."
-    not_logged: "Debes ingresar tu contaseña para jugar."
+    not_logged: "Debes ingresar tu contraseña para jugar."
     locked: "Tu cuenta ha sido bloqueada."
 
   not_allowed:

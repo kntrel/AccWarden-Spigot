@@ -70,54 +70,55 @@ public final class SessionHolder {
     public void dispose(Player player) {
         this.dispose(player.getUniqueId());
     }
-    public void open(Account account, InetSocketAddress address, Platform platform) {
+    public Optional<OpenSession> open(Account account, InetSocketAddress address, Platform platform) {
         Optional<UUID> platformId = account.getPlatformUuid(platform);
         if (platformId.isEmpty()) {
             this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
-            return;
+            return Optional.empty();
         }
         UUID id = platformId.get();
         this.dispose(id);
-        this.sessions_.put(id, new OpenSession(account, address, platform));
+        OpenSession session = new OpenSession(account, address, platform);
+        this.sessions_.put(id, session);
         this.log_("Session for UUID " + id + " open.");
+        return Optional.of(session);
     }
-    public void open(Account account, Player player, Platform platform) {
-        this.open(account, player.getAddress(), platform);
+    public Optional<OpenSession> open(Account account, Player player, Platform platform) {
+        return this.open(account, player.getAddress(), platform);
     }
-    public boolean claim(UUID uuid, InetSocketAddress address, Platform platform) {
+    public Optional<OpenSession> claim(UUID uuid, InetSocketAddress address, Platform platform) {
         Optional<SessionEntry> entry = this.findSession_(uuid, platform);
         if (entry.isEmpty()) {
             this.log_("No session opened for UUID " + uuid.toString());
-            return false;
+            return Optional.empty();
         }
         OpenSession session = entry.get().session();
-        this.dispose(entry.get().key());
         if (!session.address().getAddress().equals(address.getAddress())) {
             this.log_("Found an open session for UUID " + uuid.toString() + ", but the IP address doesn't match");
-            return false;
+            return Optional.empty();
         }
         if (!this.crossPlatformSessions_) {
             if (session.platform().equals(platform)) {
                 this.log_("UUID '" + uuid + "' joined with an open session.");
-                return true;
+                return this.promote_(entry.get(), address, platform);
             } else {
                 this.log_( "UUID '" + uuid + "' has an open session, but joined form a different platform. The 'crossPlatformLogin' setting is disabled. Denying access.");
-                return false;
+                return Optional.empty();
             }
         }
         if (session.account().hasPlatform(platform)) {
             this.log_("UUID '" + uuid + "' joined with an open session.");
-            return true;
+            return this.promote_(entry.get(), address, platform);
         } else {
             this.log_("UUID '" + uuid + "' has an open session, but it's its first time joining from " + platform.toString().toLowerCase() + ". Verification required.");
-            return false;
+            return Optional.empty();
         }
     }
-    public boolean claim(String uuid, InetSocketAddress address, Platform platform)
+    public Optional<OpenSession> claim(String uuid, InetSocketAddress address, Platform platform)
     {
         return this.claim(UUID.fromString(uuid), address, platform);
     }
-    public boolean claim(Player player, Platform platform) {
+    public Optional<OpenSession> claim(Player player, Platform platform) {
         return this.claim(player.getUniqueId(), player.getAddress(), platform);
     }
     public void openNew(Account account, InetSocketAddress address, Platform platform) {
@@ -177,6 +178,21 @@ public final class SessionHolder {
                         .isPresent())
                 .findFirst()
                 .map(entry -> new SessionEntry(entry.getKey(), entry.getValue()));
+    }
+    private Optional<OpenSession> promote_(SessionEntry entry, InetSocketAddress address, Platform platform) {
+        Optional<UUID> platformId = entry.session().account().getPlatformUuid(platform);
+        if (platformId.isEmpty()) {
+            this.log_("Unable to claim session: account has no " + platform.toString().toLowerCase() + " UUID.");
+            return Optional.empty();
+        }
+        UUID id = platformId.get();
+        this.dispose(entry.key());
+        if (!entry.key().equals(id)) {
+            this.dispose(id);
+        }
+        OpenSession session = new OpenSession(entry.session().account(), address, platform);
+        this.sessions_.put(id, session);
+        return Optional.of(session);
     }
 
     private record SessionEntry(UUID key, OpenSession session) {}

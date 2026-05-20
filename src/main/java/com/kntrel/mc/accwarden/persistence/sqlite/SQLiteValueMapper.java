@@ -94,6 +94,9 @@ final class SQLiteValueMapper {
         if (value instanceof Timestamp timestamp) {
             return timestamp.toLocalDateTime();
         }
+        if (value instanceof Number number) {
+            return Timestamp.from(toInstant(number)).toLocalDateTime();
+        }
         if (value instanceof String string) {
             return LocalDateTime.parse(string.replace(' ', 'T'));
         }
@@ -114,10 +117,21 @@ final class SQLiteValueMapper {
         if (value instanceof Timestamp timestamp) {
             return timestamp.toInstant();
         }
+        if (value instanceof Number number) {
+            return toInstant(number);
+        }
         if (value instanceof String string) {
             return Instant.parse(string);
         }
         throw new SQLException("Unable to convert column '" + column.name() + "' to Instant from " + value.getClass().getName());
+    }
+
+    private static Instant toInstant(Number number) {
+        long raw = number.longValue();
+        if (Math.abs(raw) < 10_000_000_000L) {
+            return Instant.ofEpochSecond(raw);
+        }
+        return Instant.ofEpochMilli(raw);
     }
 
     private static Object toNumber(Number number, Class<?> target, DTODescriptor.Column column) throws SQLException {
