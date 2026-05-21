@@ -1,5 +1,7 @@
-package com.kntrel.mc.accwarden.platform;
+package com.kntrel.mc.accwarden.java;
 
+import com.kntrel.mc.accwarden.platform.PlatformAdapter;
+import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import org.bukkit.entity.Player;
 
 public final class JavaOnlyPlatformRouter implements PlatformRouter {

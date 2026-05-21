@@ -5,7 +5,12 @@ login:
       title: "¡Hola!"
       subtitle: "Define una contraseña"
       actionbar: ""
-      chat: "Escribe dos veces la misma contraseña para registrarte. (<contraseña> <contraseña>)"
+      chat: ""
+      disclosure: "Este servidor requiere una contraseña para proteger tu cuenta."
+      button: "Registrarme"
+      fields:
+        password: "Contraseña"
+        confirm_password: "Confirmar contraseña"
 
     new_in_java:
       title: "¡Bienvenido a Java!"
@@ -15,9 +20,16 @@ login:
 
     existing:
       title: "¡Hola de nuevo!"
-      subtitle: "Escribe tu contraseña en el chat"
+      subtitle: "Ingresa la contraseña de tu cuenta"
       actionbar: ""
       chat: ""
+      disclosure: "Ingresa la contraseña de tu cuenta."
+      button: "Entrar"
+      fields:
+        password: "Contraseña"
+
+    dialog:
+      buttonLeaveServer: "Salir del servidor"
 
   bedrock:
     new:

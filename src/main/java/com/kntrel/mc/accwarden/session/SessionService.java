@@ -99,9 +99,9 @@ public final class SessionService {
         return switch (authentication) {
             case Authentication.Passed passed ->
                     CompletableFuture.completedFuture(this.openSessionAndNotify_(player, adapter.getPlatform(), passed.account(), SessionResult::opened));
-            case Authentication.Rejected rejected ->
+            case Authentication.Rejected _ ->
                     CompletableFuture.completedFuture(SessionResult.unauthenticated());
-            case Authentication.Unexistent unexistent ->
+            case Authentication.Unexistent _ ->
                     this.startRegistration_(player, adapter);
         };
     }

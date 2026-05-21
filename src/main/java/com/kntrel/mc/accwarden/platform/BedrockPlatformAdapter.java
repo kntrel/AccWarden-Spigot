@@ -101,8 +101,8 @@ public final class BedrockPlatformAdapter implements PlatformAdapter {
             this.listener_ = new Listener(this);
             this.plugin_.getServer().getPluginManager().registerEvents(this.listener_, this.plugin_);
         }
-        Bukkit.getScheduler().runTask(this.plugin_, login::sendFormIfNeeded);
-        Bukkit.getScheduler().runTaskLater(this.plugin_, login::sendFormIfNeeded, 20L);
+        //Bukkit.getScheduler().runTask(this.plugin_, login::sendFormIfNeeded);
+        //Bukkit.getScheduler().runTaskLater(this.plugin_, login::sendFormIfNeeded, 20L);
         Bukkit.getScheduler().runTaskLater(this.plugin_, login::sendFormIfNeeded, 60L);
     }
 
