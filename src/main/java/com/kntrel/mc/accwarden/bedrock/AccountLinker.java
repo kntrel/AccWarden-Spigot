@@ -1,4 +1,4 @@
-package com.kntrel.mc.accwarden.listener;
+package com.kntrel.mc.accwarden.bedrock;
 
 import com.google.common.base.Charsets;
 import com.kntrel.mc.accwarden.AccWarden;
@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
+
 import java.util.UUID;
 
 public class AccountLinker implements Listener {
@@ -31,7 +32,7 @@ public class AccountLinker implements Listener {
         if (fgPlayer.isLinked()) { return; }
 
         byte[] nameBytes = ("OfflinePlayer:" + e.getName()).getBytes(Charsets.UTF_8);
-        this.floodgateApi_.getPlayerLink().linkPlayer(e.getUniqueId(),UUID.nameUUIDFromBytes(nameBytes), e.getName());
+        this.floodgateApi_.getPlayerLink().linkPlayer(e.getUniqueId(), UUID.nameUUIDFromBytes(nameBytes), e.getName());
 
         e.disallow(
                 AsyncPlayerPreLoginEvent.Result.KICK_OTHER,

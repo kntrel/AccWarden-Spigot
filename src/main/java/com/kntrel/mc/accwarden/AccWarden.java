@@ -2,12 +2,12 @@ package com.kntrel.mc.accwarden;
 
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.bedrock.AccountLinker;
+import com.kntrel.mc.accwarden.bedrock.BedrockPlatformAdapter;
+import com.kntrel.mc.accwarden.bedrock.FloodgatePlatformRouter;
 import com.kntrel.mc.accwarden.command.AccountCommand;
-import com.kntrel.mc.accwarden.listener.AccountLinker;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
-import com.kntrel.mc.accwarden.platform.BedrockPlatformAdapter;
-import com.kntrel.mc.accwarden.platform.FloodgatePlatformRouter;
 import com.kntrel.mc.accwarden.java.JavaOnlyPlatformRouter;
 import com.kntrel.mc.accwarden.java.JavaPlatformAdapter;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
