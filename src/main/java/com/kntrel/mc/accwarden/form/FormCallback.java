@@ -1,7 +1,7 @@
 package com.kntrel.mc.accwarden.form;
 
 @FunctionalInterface
-public interface FormResponseHandler {
+public interface FormCallback {
 
     void onResponse(FormResponse response);
 }

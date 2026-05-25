@@ -4,5 +4,5 @@ import org.bukkit.entity.Player;
 
 public interface FormRenderer {
 
-    FormHandle show(Player player, Form form, FormResponseHandler handler);
+    FormHandle show(Player player, Form form, FormCallback handler);
 }

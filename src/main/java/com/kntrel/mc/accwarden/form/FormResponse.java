@@ -11,8 +11,8 @@ public record FormResponse(
 ) {
 
     public FormResponse {
-        kind = Objects.requireNonNull(kind, "kind");
-        actionId = Objects.requireNonNull(actionId, "actionId");
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(actionId, "actionId");
         values = Map.copyOf(Objects.requireNonNull(values, "values"));
     }
 

@@ -1,4 +1,4 @@
-package com.kntrel.mc.accwarden.java.form;
+package com.kntrel.mc.accwarden.platform.java;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -10,7 +10,7 @@ import com.kntrel.mc.accwarden.form.FormHandle;
 import com.kntrel.mc.accwarden.form.FormInput;
 import com.kntrel.mc.accwarden.form.FormRenderer;
 import com.kntrel.mc.accwarden.form.FormResponse;
-import com.kntrel.mc.accwarden.form.FormResponseHandler;
+import com.kntrel.mc.accwarden.form.FormCallback;
 import com.kntrel.mc.accwarden.form.FormText;
 import com.kntrel.mc.accwarden.form.FormTextTone;
 import net.md_5.bungee.api.ChatColor;
@@ -57,7 +57,7 @@ public final class JavaFormRenderer implements FormRenderer {
     }
 
     @Override
-    public FormHandle show(Player player, Form form, FormResponseHandler handler) {
+    public FormHandle show(Player player, Form form, FormCallback handler) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(form, "form");
         Objects.requireNonNull(handler, "handler");
@@ -109,11 +109,11 @@ public final class JavaFormRenderer implements FormRenderer {
         private final JavaFormRenderer renderer_;
         private final Player player_;
         private final Form form_;
-        private final FormResponseHandler handler_;
+        private final FormCallback handler_;
         private final Map<NamespacedKey, String> actionIds_ = new HashMap<>();
         private boolean active_ = true;
 
-        JavaFormHandle(JavaFormRenderer renderer, Player player, Form form, FormResponseHandler handler) {
+        JavaFormHandle(JavaFormRenderer renderer, Player player, Form form, FormCallback handler) {
             this.renderer_ = renderer;
             this.player_ = player;
             this.form_ = form;

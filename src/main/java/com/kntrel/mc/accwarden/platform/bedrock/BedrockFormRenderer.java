@@ -1,4 +1,4 @@
-package com.kntrel.mc.accwarden.bedrock.form;
+package com.kntrel.mc.accwarden.platform.bedrock;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.form.Form;
@@ -9,7 +9,7 @@ import com.kntrel.mc.accwarden.form.FormHandle;
 import com.kntrel.mc.accwarden.form.FormInput;
 import com.kntrel.mc.accwarden.form.FormRenderer;
 import com.kntrel.mc.accwarden.form.FormResponse;
-import com.kntrel.mc.accwarden.form.FormResponseHandler;
+import com.kntrel.mc.accwarden.form.FormCallback;
 import com.kntrel.mc.accwarden.form.FormText;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -52,7 +52,7 @@ public final class BedrockFormRenderer implements FormRenderer {
     }
 
     @Override
-    public FormHandle show(Player player, Form form, FormResponseHandler handler) {
+    public FormHandle show(Player player, Form form, FormCallback handler) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(form, "form");
         Objects.requireNonNull(handler, "handler");
@@ -179,11 +179,11 @@ public final class BedrockFormRenderer implements FormRenderer {
         private final BedrockFormRenderer renderer_;
         private final Player player_;
         private final Form form_;
-        private final FormResponseHandler handler_;
+        private final FormCallback handler_;
         private boolean active_ = true;
         private boolean sent_ = false;
 
-        BedrockFormHandle(BedrockFormRenderer renderer, Player player, Form form, FormResponseHandler handler) {
+        BedrockFormHandle(BedrockFormRenderer renderer, Player player, Form form, FormCallback handler) {
             this.renderer_ = renderer;
             this.player_ = player;
             this.form_ = form;
