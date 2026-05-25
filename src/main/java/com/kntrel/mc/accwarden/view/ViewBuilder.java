@@ -158,15 +158,14 @@ public final class ViewBuilder {
 
         @Override
         public View<T> end() {
-            List<ElementEntry> elements = List.copyOf(this.state_.elements_);
-            List<ViewAction<? extends T>> actions = List.copyOf(this.state_.actions_);
             return failedValidations -> new ViewBody<>(
-                    elements.stream()
-                            .filter(entry -> entry.failedValidation() == null
-                                    || failedValidations.contains(entry.failedValidation()))
+                    this.state_.elements_.stream()
+                            .filter(entry ->
+                                entry.failedValidation() == null || failedValidations.contains(entry.failedValidation())
+                            )
                             .map(ElementEntry::element)
                             .toList(),
-                    actions
+                    this.state_.actions_
             );
         }
 
