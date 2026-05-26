@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class ViewBuilder {
 
@@ -20,6 +21,10 @@ public final class ViewBuilder {
     }
 
     public interface Elements<T, S> {
+        S allowExit(boolean allowExit);
+        default S disallowExit() { return this.allowExit(false); }
+        S exitAction(ViewAction<? extends T> action);
+        <U extends T, A extends ViewAction<U>> S exitAction(ViewActionBuilder.Finisher<U, A> action);
         S text(String text);
         S text(FormTextTone tone, String text);
         S input(String id, String label);
@@ -53,6 +58,8 @@ public final class ViewBuilder {
     private static final class State<T> {
         private final List<ElementEntry> elements_ = new ArrayList<>();
         private final List<ViewAction<? extends T>> actions_ = new ArrayList<>();
+        private boolean allowExit_ = true;
+        private ViewAction<? extends T> exitAction_;
         private int textCount_ = 0;
 
         private String nextTextId() {
@@ -65,6 +72,23 @@ public final class ViewBuilder {
 
         private AbstractStage(State<T> state) {
             this.state_ = state;
+        }
+
+        @Override
+        public S allowExit(boolean allowExit) {
+            this.state_.allowExit_ = allowExit;
+            return this.self_();
+        }
+
+        @Override
+        public S exitAction(ViewAction<? extends T> action) {
+            this.state_.exitAction_ = Objects.requireNonNull(action, "action");
+            return this.self_();
+        }
+
+        @Override
+        public <U extends T, A extends ViewAction<U>> S exitAction(ViewActionBuilder.Finisher<U, A> action) {
+            return this.exitAction(Objects.requireNonNull(action, "action").end());
         }
 
         @Override
@@ -165,7 +189,9 @@ public final class ViewBuilder {
                             )
                             .map(ElementEntry::element)
                             .toList(),
-                    this.state_.actions_
+                    this.state_.actions_,
+                    this.state_.allowExit_,
+                    Optional.ofNullable(this.state_.exitAction_)
             );
         }
 

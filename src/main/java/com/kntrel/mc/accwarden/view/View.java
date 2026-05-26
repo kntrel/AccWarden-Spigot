@@ -5,6 +5,7 @@ import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,7 +30,26 @@ public interface View<T> {
         return _ -> body;
     }
 
+    static <T> View<T> of(
+            Iterable<? extends FormElement> elements,
+            Iterable<? extends ViewAction<? extends T>> actions,
+            boolean allowExit,
+            Optional<? extends ViewAction<? extends T>> exitAction
+    ) {
+        ViewBody<T> body = new ViewBody<>(elements, actions, allowExit, exitAction);
+        return _ -> body;
+    }
+
     static <T> View<T> of(List<? extends FormElement> elements, List<? extends ViewAction<? extends T>> actions) {
         return View.of((Iterable<? extends FormElement>) elements, actions);
+    }
+
+    static <T> View<T> of(
+            List<? extends FormElement> elements,
+            List<? extends ViewAction<? extends T>> actions,
+            boolean allowExit,
+            Optional<? extends ViewAction<? extends T>> exitAction
+    ) {
+        return View.of((Iterable<? extends FormElement>) elements, actions, allowExit, exitAction);
     }
 }

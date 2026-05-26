@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -49,7 +50,7 @@ final class ViewPresenter {
             platform.formRenderer().show(
                     player,
                     form_(view, body),
-                    response -> onResponse_(player, platform, view, actions, response, future)
+                    response -> onResponse_(player, platform, view, body, actions, response, future)
             );
         }
         catch (RuntimeException exception) {
@@ -63,7 +64,7 @@ final class ViewPresenter {
                 "",
                 body.elements(),
                 formActions_(body),
-                false
+                body.allowExit()
         );
     }
 
@@ -100,6 +101,7 @@ final class ViewPresenter {
             Player player,
             Platform platform,
             View<T> view,
+            ViewBody<T> body,
             Map<String, ViewAction<? extends T>> actions,
             FormResponse response,
             CompletableFuture<T> future
@@ -109,6 +111,18 @@ final class ViewPresenter {
         }
 
         try {
+            if (response.kind().equals(FormResponseKind.CLOSED)) {
+                Optional<ViewAction<? extends T>> exitAction = body.allowExit()
+                        ? body.exitAction()
+                        : Optional.empty();
+                if (exitAction.isEmpty()) {
+                    future.cancel(false);
+                    return;
+                }
+                completeAction_(player, platform, view, exitAction.get(), new ViewResult(Map.of()), future);
+                return;
+            }
+
             if (!response.kind().equals(FormResponseKind.ACTION)) {
                 future.cancel(false);
                 return;
@@ -122,26 +136,37 @@ final class ViewPresenter {
             }
 
             ViewResult result = new ViewResult(response.values());
-            Set<String> failedValidations = failedValidations_(action, result);
-            if (!failedValidations.isEmpty()) {
-                render_(player, platform, view, failedValidations, future);
-                return;
-            }
-
-            if (action instanceof ViewAction.Return<? extends T> returnAction) {
-                future.complete(returnAction.getValue(result));
-                return;
-            }
-            if (action instanceof ViewAction.Link<? extends T> linkAction) {
-                forward_(linkAction.getSubView(result).present(player, platform), future);
-                return;
-            }
-
-            future.completeExceptionally(new IllegalStateException("Unsupported view action: " + action.getClass().getName()));
+            completeAction_(player, platform, view, action, result, future);
         }
         catch (RuntimeException exception) {
             future.completeExceptionally(exception);
         }
+    }
+
+    private static <T> void completeAction_(
+            Player player,
+            Platform platform,
+            View<T> view,
+            ViewAction<? extends T> action,
+            ViewResult result,
+            CompletableFuture<T> future
+    ) {
+        Set<String> failedValidations = failedValidations_(action, result);
+        if (!failedValidations.isEmpty()) {
+            render_(player, platform, view, failedValidations, future);
+            return;
+        }
+
+        if (action instanceof ViewAction.Return<? extends T> returnAction) {
+            future.complete(returnAction.getValue(result));
+            return;
+        }
+        if (action instanceof ViewAction.Link<? extends T> linkAction) {
+            forward_(linkAction.getSubView(result).present(player, platform), future);
+            return;
+        }
+
+        future.completeExceptionally(new IllegalStateException("Unsupported view action: " + action.getClass().getName()));
     }
 
     private static Set<String> failedValidations_(ViewAction<?> action, ViewResult result) {

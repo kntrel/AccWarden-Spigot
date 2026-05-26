@@ -59,6 +59,7 @@ final class BedrockViews implements PlatformViews {
                     .label(this.authTranslate_(player, "action.submit", "Log in"))
                     .value(result -> new AuthenticationAction.Password(result.get(PASSWORD)))
                     .validates(PASSWORD_REQUIRED, r -> !r.get(PASSWORD).isBlank()))
+            .disallowExit()
             .end();
     }
 
@@ -102,6 +103,7 @@ final class BedrockViews implements PlatformViews {
                     .validates(PASSWORD_MATCH, r ->    r.get(PASSWORD).isBlank()
                                                           || r.get(CONFIRM_PASSWORD).isBlank()
                                                           || r.get(PASSWORD).equals(r.get(CONFIRM_PASSWORD))))
+            .disallowExit()
             .end();
     }
 

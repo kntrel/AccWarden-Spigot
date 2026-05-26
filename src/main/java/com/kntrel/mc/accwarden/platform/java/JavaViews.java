@@ -56,6 +56,7 @@ final class JavaViews implements PlatformViews {
                     .id("quit")
                     .label(this.authTranslate_(player, "action.leave", "Leave server"))
                     .value(new AuthenticationAction.Quit()))
+            .disallowExit()
             .end();
     }
 
@@ -89,6 +90,7 @@ final class JavaViews implements PlatformViews {
                     .id("quit")
                     .label(this.regTranslate_(player, "action.leave", "Leave server"))
                     .value(new RegistrationAction.Quit()))
+            .disallowExit()
             .end();
     }
 

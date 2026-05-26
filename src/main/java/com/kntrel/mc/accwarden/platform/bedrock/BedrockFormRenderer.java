@@ -221,7 +221,7 @@ public final class BedrockFormRenderer implements FormRenderer {
         private boolean sendCustom_() {
             CustomForm.Builder builder = CustomForm.builder()
                     .title(this.form_.title())
-                    .closedResultHandler(() -> this.respond_(FormResponse.closed()))
+                    .closedResultHandler(this::onClosed_)
                     .invalidResultHandler(() -> this.respond_(FormResponse.invalid()));
 
             Map<String, Integer> inputIndexes = new HashMap<>();
@@ -257,7 +257,7 @@ public final class BedrockFormRenderer implements FormRenderer {
                     .content(this.modalContent_())
                     .button1(actions.get(0).label())
                     .button2(actions.get(1).label())
-                    .closedResultHandler(() -> this.respond_(FormResponse.closed()))
+                    .closedResultHandler(this::onClosed_)
                     .invalidResultHandler(() -> this.respond_(FormResponse.invalid()))
                     .validResultHandler((ModalFormResponse response) -> this.respond_(FormResponse.action(
                             response.clickedFirst() ? actions.get(0).id() : actions.get(1).id(),
@@ -294,6 +294,24 @@ public final class BedrockFormRenderer implements FormRenderer {
                     .filter(action -> action.role().equals(FormActionRole.PRIMARY))
                     .findFirst()
                     .or(() -> this.form_.actions().stream().findFirst());
+        }
+
+        private void onClosed_() {
+            if (this.form_.canClose()) {
+                this.respond_(FormResponse.closed());
+                return;
+            }
+
+            this.renderer_.runSync_(() -> {
+                if (!this.active_) {
+                    return;
+                }
+                if (!this.player_.isOnline()) {
+                    this.respond_(FormResponse.closed());
+                    return;
+                }
+                this.send();
+            });
         }
 
         private void closeSilently_() {
