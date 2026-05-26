@@ -1,6 +1,6 @@
 package com.kntrel.mc.accwarden;
 
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 
 public record AccWardenConfig(
         String defaultLanguage,
@@ -27,7 +27,7 @@ public record AccWardenConfig(
             12
     );
 
-    public static AccWardenConfig load(YamlConfiguration config) {
+    public static AccWardenConfig load(ConfigurationSection config) {
         return new AccWardenConfig(
                 config.getString("defaultLanguage", DEFAULT.defaultLanguage()),
                 config.getBoolean("playerNameAutoLinking", DEFAULT.playerNameAutoLinking()),

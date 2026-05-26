@@ -1,6 +1,6 @@
 #The language to default to if a player's client is set to a non-supported language.
 #If you're going to change this, make sure to set it lo one supported by this plugin or to an existing custom one
-#inside the ./lang folder.
+#inside the ./translations folder.
 defaultLanguage: "en"
 
 #If enabled, players from Java and Bedrock with the same username will be automatically linked through floodgate,

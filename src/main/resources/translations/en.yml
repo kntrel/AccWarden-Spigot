@@ -1,0 +1,115 @@
+registration_form:
+  java:
+    disclosure: "This server requires a password to protect your account."
+    input:
+      password: "Password"
+      confirm_password: "Confirm password"
+    action:
+      submit: "Register"
+      leave: "Leave server"
+    error:
+      invalid_input:
+        password_required: "Password is required."
+        confirm_password_required: "Missing confirmation!"
+        no_match: "Passwords do not match!"
+        too_short: "Your password cannot have less than {min} characters."
+        too_long: "Your password cannot have more than {max} characters."
+      password_rejected: "Password rejected."
+  bedrock:
+    disclosure: "Welcome to the server! Define a password to protect your account from Java Edition.\nYou won't have to re-enter it from bedrock!"
+    input:
+      password: "Password:"
+      password_placeholder: "creeper123"
+      confirm_password: "Confirm password:"
+      confirm_password_placeholder: "creeper123"
+    action:
+      submit: "Register"
+      leave: "Quit"
+    error:
+      invalid_input:
+        password_required: "Password is required."
+        confirm_password_required: "Missing confirmation!"
+        no_match: "Passwords do not match!"
+        too_short: "Your password cannot have less than {min} characters."
+        too_long: "Your password cannot have more than {max} characters."
+      password_rejected: "Password rejected."
+
+authentication_form:
+  java:
+    disclosure:
+      regular: "Welcome back!\nEnter your account password."
+      platform_first_time: "Welcome to Java!\nType the password you entered the first time you joined from bedrock"
+    input:
+      password: "Password"
+    action:
+      submit: "Log in"
+      leave: "Leave server"
+    error:
+      account_locked: "Your account has been locked."
+      account_not_found: "This account does not exist."
+      wrong_password:
+        fine: "Wrong password!"
+        odd: "Wrong password! Contact the admins if you're having trouble logging in."
+        warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+      invalid_input:
+        password_required: "Password is required."
+        no_match: "Passwords do not match!"
+        non_confirmed: "Missing confirmation!"
+        too_short: "Your password cannot have less than {min} characters."
+        too_long: "Your password cannot have more than {max} characters."
+  bedrock:
+    disclosure:
+      regular: "Enter your account password."
+      platform_first_time: "Hey! Your account is already registered from Java. Type your password to verify yourself.\nYou won't have to re-enter it from Bedrock!"
+    input:
+      password: "Password:"
+      password_placeholder: "Your password"
+    action:
+      submit: "Log in"
+      leave: "Quit"
+    error:
+      account_locked: "Your account has been locked."
+      account_not_found: "This account does not exist."
+      wrong_password:
+        fine: "Wrong password!"
+        odd: "Wrong password! Contact the admins if you're having trouble logging in."
+        warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+      invalid_input:
+        password_required: "Password is required."
+        no_match: "Passwords do not match!"
+        non_confirmed: "Missing confirmation!"
+        too_short: "Your password cannot have less than {min} characters."
+        too_long: "Your password cannot have more than {max} characters."
+
+command:
+  unexisting_account: "{player} doesn't have an account."
+  reset:
+    success: "{player}'s account has been deleted."
+  changePassword:
+    success: "Your password has been changed."
+
+error:
+  kicked:
+    not_registered: "You must register with a password to play in this server."
+    not_logged: "You must enter your password to play."
+    locked: "Your account has been locked."
+
+  not_allowed:
+    send_message: "You're not allowed to send messages until logged in."
+    issue_command: "You're not allowed issue commands until logged in."
+
+  invalid_input:
+    no_match: "Passwords do not match!"
+    non_confirmed: "Missing confirmation!"
+    too_short: "Your password cannot have less than {min} characters."
+    too_long: "Your password cannot have more than {max} characters."
+
+  incorrect_password:
+    fine: "Wrong password!"
+    odd: "Wrong password! Contact the admins if you're having trouble logging in."
+    warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+
+info:
+  logged_in: "Logged in!"
+  account_linked: "We've synced your Java and Bedrock accounts. You may re-join."
+  account_deleted: "Your account has been deleted. Pleaser re-join."

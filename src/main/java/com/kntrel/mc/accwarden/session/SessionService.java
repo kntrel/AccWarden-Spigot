@@ -3,11 +3,12 @@ package com.kntrel.mc.accwarden.session;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
 import com.kntrel.mc.accwarden.account.exception.LogginException;
+import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
+import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import com.kntrel.mc.accwarden.event.PlayerAccountLoginEvent;
-import com.kntrel.mc.accwarden.platform.Authentication;
 import com.kntrel.mc.accwarden.platform.Platform;
-import com.kntrel.mc.accwarden.platform.PlatformAdapter;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -36,12 +37,11 @@ public final class SessionService {
 
     public CompletableFuture<SessionResult> openSession(Player player) {
         try {
-            PlatformAdapter adapter = this.requireRouter_().getAdapter(player);
-            Platform platform = adapter.getPlatform();
+            Platform platform = this.requireRouter_().getPlatform(player);
             return this.sessionHolder_
                     .claim(player, platform)
                     .map(session -> CompletableFuture.completedFuture(this.resumeSession_(player, session)))
-                    .orElseGet(() -> this.startAuthentication_(player, adapter));
+                    .orElseGet(() -> this.startSession_(player, platform));
         } catch (RuntimeException ex) {
             return CompletableFuture.completedFuture(this.failFlow_(ex));
         }
@@ -85,24 +85,90 @@ public final class SessionService {
                 .message());
     }
 
-    private CompletableFuture<SessionResult> startAuthentication_(Player player, PlatformAdapter adapter) {
+    private CompletableFuture<SessionResult> startSession_(Player player, Platform platform) {
+        return this.accountService_
+                .get(player, platform)
+                .map(account -> this.startAuthentication_(player, platform, account, AuthenticationViewState.regular()))
+                .orElseGet(() -> this.accountService_
+                        .getFirstTimePlatformAccount(player, platform)
+                        .map(account -> this.startAuthentication_(
+                                player,
+                                platform,
+                                account,
+                                AuthenticationViewState.platformFirstTime()
+                        ))
+                        .orElseGet(() -> this.startRegistration_(player, platform, RegistrationViewState.initial())));
+    }
+
+    private CompletableFuture<SessionResult> startAuthentication_(
+            Player player,
+            Platform platform,
+            Account account,
+            AuthenticationViewState state
+    ) {
         try {
-            return this.await_(adapter.authenticate(player), player)
-                    .thenCompose(result -> this.completeAuthentication_(player, adapter, result))
+            return this.await_(platform.views().authentication(player, state).present(player, platform), player)
+                    .thenCompose(action -> this.completeAuthentication_(player, platform, account, state, action))
                     .exceptionally(this::failFlow_);
         } catch (RuntimeException ex) {
             return CompletableFuture.completedFuture(this.failFlow_(ex));
         }
     }
 
-    private CompletableFuture<SessionResult> completeAuthentication_(Player player, PlatformAdapter adapter, Authentication authentication) {
-        return switch (authentication) {
-            case Authentication.Passed passed ->
-                    CompletableFuture.completedFuture(this.openSessionAndNotify_(player, adapter.getPlatform(), passed.account(), SessionResult::opened));
-            case Authentication.Rejected _ ->
-                    CompletableFuture.completedFuture(SessionResult.unauthenticated());
-            case Authentication.Unexistent _ ->
-                    this.startRegistration_(player, adapter);
+    private CompletableFuture<SessionResult> completeAuthentication_(
+            Player player,
+            Platform platform,
+            Account account,
+            AuthenticationViewState state,
+            AuthenticationAction action
+    ) {
+        if (action instanceof AuthenticationAction.Password password) {
+            try {
+                Account loggedAccount = this.accountService_.authenticate(account, password.password());
+                if (!loggedAccount.hasPlatform(platform)) {
+                    this.accountService_.link(loggedAccount, player, platform);
+                }
+                return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, loggedAccount, SessionResult::opened));
+            } catch (LogginException ex) {
+                return this.authenticationFailure_(player, platform, account, state, ex);
+            }
+        }
+        if (action instanceof AuthenticationAction.Quit) {
+            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
+        }
+        if (action instanceof AuthenticationAction.Error error) {
+            this.sendIfPresent_(player, error.message());
+            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
+        }
+        return CompletableFuture.completedFuture(this.failFlow_(new IllegalStateException("Unsupported authentication action: " + action)));
+    }
+
+    private CompletableFuture<SessionResult> authenticationFailure_(
+            Player player,
+            Platform platform,
+            Account account,
+            AuthenticationViewState state,
+            LogginException exception
+    ) {
+        return switch (exception.getReason()) {
+            case INCORRECT_PASSWORD -> this.startAuthentication_(
+                    player,
+                    platform,
+                    account,
+                    AuthenticationViewState.failed(state.kind(), new AuthenticationViewState.Failure.IncorrectPassword())
+            );
+            case ACCOUNT_LOCKED -> {
+                player.sendMessage(ChatColor.RED + this.plugin_.getRunical()
+                        .translate(player, "error.kicked.locked")
+                        .orDefault("")
+                        .message());
+                yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
+            }
+            case ACCOUNT_NOT_FOUND -> this.startRegistration_(player, platform, RegistrationViewState.initial());
+            case DENIED -> {
+                exception.getPublicMessage().ifPresent(player::sendMessage);
+                yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
+            }
         };
     }
 
@@ -127,13 +193,49 @@ public final class SessionService {
         return SessionResult.caches(session);
     }
 
-    private CompletableFuture<SessionResult> startRegistration_(Player player, PlatformAdapter adapter) {
+    private CompletableFuture<SessionResult> startRegistration_(Player player, Platform platform, RegistrationViewState state) {
         try {
-            return this.await_(adapter.register(player), player)
-                    .thenApply(account -> this.openSessionAndNotify_(player, adapter.getPlatform(), account, SessionResult::registered));
+            return this.await_(platform.views().registration(player, state).present(player, platform), player)
+                    .thenCompose(action -> this.completeRegistration_(player, platform, action))
+                    .exceptionally(this::failFlow_);
         } catch (RuntimeException ex) {
             return CompletableFuture.completedFuture(this.failFlow_(ex));
         }
+    }
+
+    private CompletableFuture<SessionResult> completeRegistration_(Player player, Platform platform, RegistrationAction action) {
+        if (action instanceof RegistrationAction.Password password) {
+            try {
+                Account account = this.accountService_.register(player, platform, password.password());
+                return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, account, SessionResult::registered));
+            } catch (PasswordTooShortException ex) {
+                return this.startRegistration_(
+                        player,
+                        platform,
+                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooShort(ex.getMinLength()))
+                );
+            } catch (PasswordTooLongException ex) {
+                return this.startRegistration_(
+                        player,
+                        platform,
+                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooLong(ex.getMaxLength()))
+                );
+            } catch (InvalidPasswordException ex) {
+                return this.startRegistration_(
+                        player,
+                        platform,
+                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordRejected())
+                );
+            }
+        }
+        if (action instanceof RegistrationAction.Quit) {
+            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
+        }
+        if (action instanceof RegistrationAction.Error error) {
+            this.sendIfPresent_(player, error.message());
+            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
+        }
+        return CompletableFuture.completedFuture(this.failFlow_(new IllegalStateException("Unsupported registration action: " + action)));
     }
 
     private <T> CompletableFuture<T> await_(CompletableFuture<T> future, Player player) {
@@ -171,6 +273,12 @@ public final class SessionService {
             return;
         }
         this.plugin_.getServer().getScheduler().runTask(this.plugin_, runnable);
+    }
+
+    private void sendIfPresent_(Player player, String message) {
+        if (message != null && !message.isBlank()) {
+            player.sendMessage(message);
+        }
     }
 
     private PlatformRouter requireRouter_() {

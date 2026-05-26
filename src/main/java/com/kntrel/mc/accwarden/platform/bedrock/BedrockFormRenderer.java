@@ -17,16 +17,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitTask;
 import org.geysermc.cumulus.form.CustomForm;
 import org.geysermc.cumulus.form.ModalForm;
 import org.geysermc.cumulus.response.CustomFormResponse;
 import org.geysermc.cumulus.response.ModalFormResponse;
+import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.geyser.api.event.EventRegistrar;
 import org.geysermc.geyser.api.event.EventSubscriber;
 import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
-import org.geysermc.floodgate.api.FloodgateApi;
+import org.bukkit.scheduler.BukkitTask;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +86,7 @@ public final class BedrockFormRenderer implements FormRenderer {
         }
         pending.cancelTimeout();
         if (pending.form_ != null) {
-            this.plugin_.getLogger().fine("Timed out waiting for Geyser join event for Bedrock player '" + pending.form_.player_.getName() + "'.");
+            this.plugin_.getLogger().fine("Timed out waiting for Geyser session join event for Bedrock player '" + pending.form_.player_.getName() + "'.");
             pending.form_.timeout();
         }
     }
@@ -139,6 +139,21 @@ public final class BedrockFormRenderer implements FormRenderer {
         this.plugin_.getServer().getScheduler().runTask(this.plugin_, runnable);
     }
 
+    private void releasePlayer_(Player player) {
+        PendingSessionJoin pending = this.pendingSessionJoins_.remove(player.getUniqueId());
+        if (pending != null) {
+            pending.cancelTimeout();
+        }
+        this.findForm_(player).ifPresent(BedrockFormHandle::cancel);
+    }
+
+    private void trackBukkitJoinedBedrockPlayer_(Player player) {
+        if (!this.floodgateApi_.isFloodgatePlayer(player.getUniqueId())) {
+            return;
+        }
+        this.pendingSessionJoins_.putIfAbsent(player.getUniqueId(), new PendingSessionJoin());
+    }
+
     private static final class PendingSessionJoin {
 
         private BedrockFormHandle form_;
@@ -157,21 +172,6 @@ public final class BedrockFormRenderer implements FormRenderer {
             this.timeoutTask_.cancel();
             this.timeoutTask_ = null;
         }
-    }
-
-    private void trackBukkitJoinedBedrockPlayer_(Player player) {
-        if (!this.floodgateApi_.isFloodgatePlayer(player.getUniqueId())) {
-            return;
-        }
-        this.pendingSessionJoins_.putIfAbsent(player.getUniqueId(), new PendingSessionJoin());
-    }
-
-    private void releasePlayer_(Player player) {
-        PendingSessionJoin pending = this.pendingSessionJoins_.remove(player.getUniqueId());
-        if (pending != null) {
-            pending.cancelTimeout();
-        }
-        this.findForm_(player).ifPresent(BedrockFormHandle::cancel);
     }
 
     private static final class BedrockFormHandle implements FormHandle {

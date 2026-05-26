@@ -7,5 +7,10 @@ CREATE TABLE IF NOT EXISTS account (
     hashed_password TEXT NOT NULL,
     joined DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CHECK(java_uuid IS NOT NULL OR bedrock_uuid IS NOT NULL)
+    CHECK(java_uuid IS NOT NULL OR bedrock_uuid IS NOT NULL),
+    CHECK(TRIM(name) = name),
+    CHECK(name > 0),
+    CHECK(TRIM(name) NOT GLOB '*[^A-Za-z0-9_]*')
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS account_name_unique ON account(LOWER(TRIM(name)));

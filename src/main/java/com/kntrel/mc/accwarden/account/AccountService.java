@@ -2,6 +2,7 @@ package com.kntrel.mc.accwarden.account;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.exception.LogginException;
+import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
 import com.kntrel.mc.accwarden.persistence.domain.SQLiteAccountRepository;
 import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.Bukkit;
@@ -23,8 +24,8 @@ public final class AccountService implements AccountRepository {
     public AccountService(AccWarden plugin, AccountRepository delegate) {
         this.plugin_ = plugin;
         this.delegate_ = delegate;
-        this.passwordMinLength_ = plugin.CONFIG.passwordMinSize();
-        this.passwordMaxLength_ = plugin.CONFIG.passwordMaxSize();
+        this.passwordMinLength_ = plugin.getAccWardenConfig().passwordMinSize();
+        this.passwordMaxLength_ = plugin.getAccWardenConfig().passwordMaxSize();
     }
 
     public static AccountService create(AccWarden plugin) {
@@ -58,7 +59,7 @@ public final class AccountService implements AccountRepository {
     }
 
     public Account create(Player player) {
-        return this.create(player, Platform.JAVA);
+        return this.create(player, this.plugin_.getPlatformRouter().getPlatform(player));
     }
 
     public Account create(Player player, Platform platform) {
@@ -68,7 +69,7 @@ public final class AccountService implements AccountRepository {
     }
 
     public Account getOrCreate(Player player) {
-        return this.getOrCreate(player, Platform.JAVA);
+        return this.getOrCreate(player, this.plugin_.getPlatformRouter().getPlatform(player));
     }
 
     public Account getOrCreate(Player player, Platform platform) {
@@ -76,10 +77,19 @@ public final class AccountService implements AccountRepository {
     }
 
     public Optional<Account> get(Player player, Platform platform) {
-        return switch (platform) {
-            case JAVA -> this.getByJavaId(player.getUniqueId());
-            case BEDROCK -> this.getByBedrockId(player.getUniqueId());
-        };
+        if (platform.isJava()) { return this.getByJavaId(player.getUniqueId()); }
+        if (platform.isBedrock()) { return this.getByBedrockId(player.getUniqueId()); }
+        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
+    }
+
+    public Optional<Account> getFirstTimePlatformAccount(Player player, Platform platform) {
+        if (!this.plugin_.getAccWardenConfig().playerNameAutoLinking()) {
+            return Optional.empty();
+        }
+        return this.getByName(player.getName())
+                .stream()
+                .filter(account -> !account.hasPlatform(platform))
+                .findFirst();
     }
 
     public boolean exists(Player player, Platform platform) {
@@ -100,18 +110,31 @@ public final class AccountService implements AccountRepository {
 
     @Nonnull
     public Account login(Player player, String password) throws LogginException {
-        return this.login(player, Platform.JAVA, password);
+        return this.login(player, this.plugin_.getPlatformRouter().getPlatform(player), password);
     }
 
     @Nonnull
     public Account login(Player player, Platform platform, String password) throws LogginException {
         Account account = this.get(player, platform).orElseThrow(() -> new LogginException(LogginException.Reason.ACCOUNT_NOT_FOUND));
+        return this.authenticate(account, password);
+    }
+
+    @Nonnull
+    public Account authenticate(Account account, String password) throws LogginException {
+        account = this.prepare(account);
         if (account.isLocked()) {
             throw new LogginException(LogginException.Reason.ACCOUNT_LOCKED, account);
         }
         if (!account.checkPassword(password)) {
             throw new LogginException(LogginException.Reason.INCORRECT_PASSWORD, account);
         }
+        return account;
+    }
+
+    public Account register(Player player, Platform platform, String password) throws InvalidPasswordException {
+        Account account = this.create(player, platform);
+        account.setPassword(password, password);
+        this.save(account);
         return account;
     }
 
@@ -122,10 +145,15 @@ public final class AccountService implements AccountRepository {
     }
 
     public void link(Account account, Player player, Platform platform) {
-        switch (platform) {
-            case JAVA -> account.linkJava(player.getUniqueId());
-            case BEDROCK -> account.linkBedrock(player.getUniqueId());
+        if (platform.isJava()) {
+            account.linkJava(player.getUniqueId());
+            return;
         }
+        if (platform.isBedrock()) {
+            account.linkBedrock(player.getUniqueId());
+            return;
+        }
+        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
     }
 
     private void kickDeletedAccount(Player player) {

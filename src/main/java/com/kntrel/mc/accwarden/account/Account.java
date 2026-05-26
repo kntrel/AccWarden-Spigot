@@ -102,10 +102,9 @@ public class Account {
         return this.bedrockUuid_ != null;
     }
     public boolean hasPlatform(Platform platform) {
-        return switch (platform) {
-            case JAVA -> this.hasJava();
-            case BEDROCK -> this.hasBedrock();
-        };
+        if (platform.isJava()) { return this.hasJava(); }
+        if (platform.isBedrock()) { return this.hasBedrock(); }
+        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
     }
     public boolean isLocked() { return false; }
     public AccountRepository getRepository() {
@@ -118,10 +117,9 @@ public class Account {
         return Optional.ofNullable(this.bedrockUuid_);
     }
     public Optional<UUID> getPlatformUuid(Platform platform) {
-        return switch (platform) {
-            case JAVA -> this.getJavaUuid();
-            case BEDROCK -> this.getBedrockUuid();
-        };
+        if (platform.isJava()) { return this.getJavaUuid(); }
+        if (platform.isBedrock()) { return this.getBedrockUuid(); }
+        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
     }
     public String getSalt() {
         return new String(this.salt_, StandardCharsets.UTF_8);

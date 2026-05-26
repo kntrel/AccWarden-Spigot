@@ -9,9 +9,9 @@ public record OpenSession(Account account, InetSocketAddress address, Platform p
 
     //CUSTOM GETTERS
     public boolean isJava() {
-        return this.platform.equals(Platform.JAVA);
+        return this.platform.isJava();
     }
     public boolean isBedrock() {
-        return this.platform.equals(Platform.BEDROCK);
+        return this.platform.isBedrock();
     }
 }
