@@ -86,18 +86,22 @@ public final class SessionService {
     }
 
     private CompletableFuture<SessionResult> startSession_(Player player, Platform platform) {
-        return this.accountService_
-                .get(player, platform)
-                .map(account -> this.startAuthentication_(player, platform, account, AuthenticationViewState.regular()))
-                .orElseGet(() -> this.accountService_
-                        .getFirstTimePlatformAccount(player, platform)
-                        .map(account -> this.startAuthentication_(
-                                player,
-                                platform,
-                                account,
-                                AuthenticationViewState.platformFirstTime()
-                        ))
-                        .orElseGet(() -> this.startRegistration_(player, platform, RegistrationViewState.initial())));
+        var account = this.accountService_.get(player, platform);
+        if (account.isPresent()) {
+            return this.startAuthentication_(player, platform, account.get(), AuthenticationViewState.regular());
+        }
+
+        var firstTimePlatformAccount = this.accountService_.getFirstTimePlatformAccount(player, platform);
+        if (firstTimePlatformAccount.isPresent()) {
+            return this.startAuthentication_(
+                    player,
+                    platform,
+                    firstTimePlatformAccount.get(),
+                    AuthenticationViewState.platformFirstTime()
+            );
+        }
+
+        return this.startRegistration_(player, platform, RegistrationViewState.initial());
     }
 
     private CompletableFuture<SessionResult> startAuthentication_(
@@ -204,38 +208,37 @@ public final class SessionService {
     }
 
     private CompletableFuture<SessionResult> completeRegistration_(Player player, Platform platform, RegistrationAction action) {
-        if (action instanceof RegistrationAction.Password password) {
-            try {
-                Account account = this.accountService_.register(player, platform, password.password());
-                return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, account, SessionResult::registered));
-            } catch (PasswordTooShortException ex) {
-                return this.startRegistration_(
-                        player,
-                        platform,
-                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooShort(ex.getMinLength()))
-                );
-            } catch (PasswordTooLongException ex) {
-                return this.startRegistration_(
-                        player,
-                        platform,
-                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooLong(ex.getMaxLength()))
-                );
-            } catch (InvalidPasswordException ex) {
-                return this.startRegistration_(
-                        player,
-                        platform,
-                        RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordRejected())
-                );
+        return switch (action) {
+            case RegistrationAction.Password(String password) -> {
+                try {
+                    Account account = this.accountService_.register(player, platform, password);
+                    yield CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, account, SessionResult::registered));
+                } catch (PasswordTooShortException ex) {
+                    yield this.startRegistration_(
+                            player,
+                            platform,
+                            RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooShort(ex.getMinLength()))
+                    );
+                } catch (PasswordTooLongException ex) {
+                    yield this.startRegistration_(
+                            player,
+                            platform,
+                            RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordTooLong(ex.getMaxLength()))
+                    );
+                } catch (InvalidPasswordException ex) {
+                    yield this.startRegistration_(
+                            player,
+                            platform,
+                            RegistrationViewState.failed(new RegistrationViewState.Failure.PasswordRejected())
+                    );
+                }
             }
-        }
-        if (action instanceof RegistrationAction.Quit) {
-            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
-        }
-        if (action instanceof RegistrationAction.Error error) {
-            this.sendIfPresent_(player, error.message());
-            return CompletableFuture.completedFuture(SessionResult.unauthenticated());
-        }
-        return CompletableFuture.completedFuture(this.failFlow_(new IllegalStateException("Unsupported registration action: " + action)));
+            case RegistrationAction.Quit() -> CompletableFuture.completedFuture(SessionResult.unauthenticated());
+            case RegistrationAction.Error(String message) -> {
+                this.sendIfPresent_(player, message);
+                yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
+            }
+        };
     }
 
     private <T> CompletableFuture<T> await_(CompletableFuture<T> future, Player player) {
