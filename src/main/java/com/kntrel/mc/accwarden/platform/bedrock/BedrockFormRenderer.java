@@ -22,9 +22,9 @@ import org.geysermc.cumulus.form.ModalForm;
 import org.geysermc.cumulus.response.CustomFormResponse;
 import org.geysermc.cumulus.response.ModalFormResponse;
 import org.geysermc.floodgate.api.FloodgateApi;
+import org.geysermc.event.subscribe.OwnedSubscriber;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.geyser.api.event.EventRegistrar;
-import org.geysermc.geyser.api.event.EventSubscriber;
 import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
 import org.bukkit.scheduler.BukkitTask;
 import java.util.HashMap;
@@ -43,7 +43,7 @@ public final class BedrockFormRenderer implements FormRenderer {
     private final Map<UUID, BedrockFormHandle> activeForms_ = new HashMap<>();
     private final Map<UUID, PendingSessionJoin> pendingSessionJoins_ = new HashMap<>();
     private EventRegistrar geyserEventRegistrar_;
-    private EventSubscriber<EventRegistrar, SessionJoinEvent> sessionJoinSubscriber_;
+    private OwnedSubscriber<EventRegistrar, SessionJoinEvent> sessionJoinSubscriber_;
 
     public BedrockFormRenderer(AccWarden plugin) {
         this.plugin_ = Objects.requireNonNull(plugin, "plugin");

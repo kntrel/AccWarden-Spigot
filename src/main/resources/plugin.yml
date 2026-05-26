@@ -1,9 +1,8 @@
 name: AccWarden
 version: '${project.version}'
 main: com.kntrel.mc.accwarden.AccWarden
-api-version: 26.1
+api-version: 26.1.2
 prefix: AccWarden
-load: STARTUP
 softdepend: [ Geyser-Spigot, floodgate ]
 authors: [ kntrel ]
 description: An account-warden light plugin for Minecreaft Spigot and forks. Handle user authentication for offline mode servers. Built-in Bedrock support.

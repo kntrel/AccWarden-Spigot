@@ -3,10 +3,11 @@ package com.kntrel.mc.accwarden;
 import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
-import com.kntrel.mc.accwarden.platform.DefaultPlatformRouter;
+import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
 import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import com.kntrel.mc.accwarden.platform.bedrock.BedrockPlatform;
+import com.kntrel.mc.accwarden.platform.bedrock.JavaAndBedrockPlatformRouter;
 import com.kntrel.mc.accwarden.platform.java.JavaPlatform;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.accwarden.session.SessionService;
@@ -96,16 +97,21 @@ public final class AccWarden extends JavaPlugin {
 
     private PlatformRouter createPlatformRouter_() {
         Platform javaPlatform = new JavaPlatform(this);
-        Platform bedrockPlatform = null;
-        if (this.getServer().getPluginManager().isPluginEnabled("floodgate")
-                && this.getServer().getPluginManager().isPluginEnabled("Geyser-Spigot")) {
-            try {
-                bedrockPlatform = new BedrockPlatform(this);
-            } catch (LinkageError | RuntimeException ex) {
-                this.getLogger().log(Level.WARNING, "Failed to initialize Bedrock platform support. Falling back to Java forms.", ex);
-            }
+
+        //DANGER ZONE ----------------------------------------
+        //Entry point for Geyser & Floodgate API's, only if Floodgate is present
+        if (   this.getServer().getPluginManager().isPluginEnabled("floodgate")
+            && this.getServer().getPluginManager().isPluginEnabled("Geyser-Spigot")
+        ) try {
+            Platform bedrockPlatform = new BedrockPlatform(this);
+            this.getLogger().info("The server uses Geyser and Floodgate. Switching to Bedrock compatibility mode.");
+            return new JavaAndBedrockPlatformRouter(javaPlatform, bedrockPlatform);
+        } catch (LinkageError | RuntimeException ex) {
+            this.getLogger().log(Level.WARNING, "Failed to initialize Bedrock platform support. Falling back to Java forms.", ex);
         }
-        return new DefaultPlatformRouter(javaPlatform, bedrockPlatform);
+        //----------------------------------------------------
+
+        return new JavaOnlyPlatformRouter(javaPlatform);
     }
 
     private <T> T require_(T value, String message) {
