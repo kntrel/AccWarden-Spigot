@@ -93,6 +93,7 @@ error:
     not_registered: "You must register with a password to play in this server."
     not_logged: "You must enter your password to play."
     locked: "Your account has been locked."
+    auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
 
   not_allowed:
     send_message: "You're not allowed to send messages until logged in."
@@ -111,7 +112,4 @@ error:
 
 info:
   logged_in: "Logged in!"
-  account_linked: "We've synced your Java and Bedrock accounts. Please re-join."
-  account_linked_to_java: "Your Java account has been linked to your Bedrock account. Please re-join."
-  account_linked_to_bedrock: "Your Bedrock account has been linked to your Java account. Please re-join."
   account_deleted: "Your account has been deleted. Pleaser re-join."

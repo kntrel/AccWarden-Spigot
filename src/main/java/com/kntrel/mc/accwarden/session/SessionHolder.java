@@ -77,12 +77,12 @@ public final class SessionHolder {
         this.dispose(platform.accountUuid(player));
     }
     public Optional<OpenSession> open(Account account, InetSocketAddress address, Platform platform) {
-        Optional<UUID> platformId = account.getPlatformUuid(platform);
-        if (platformId.isEmpty()) {
-            this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
+        Optional<UUID> accountId = account.getUuid();
+        if (accountId.isEmpty()) {
+            this.log_("Unable to open session: account has no UUID.");
             return Optional.empty();
         }
-        UUID id = platformId.get();
+        UUID id = accountId.get();
         this.dispose(id);
         OpenSession session = new OpenSession(account, address, platform);
         this.sessions_.put(id, session);
@@ -93,7 +93,7 @@ public final class SessionHolder {
         return this.open(account, player.getAddress(), platform);
     }
     public Optional<OpenSession> claim(UUID uuid, InetSocketAddress address, Platform platform) {
-        Optional<SessionEntry> entry = this.findSession_(uuid, platform);
+        Optional<SessionEntry> entry = this.findSession_(uuid);
         if (entry.isEmpty()) {
             this.log_("No session opened for UUID " + uuid.toString());
             return Optional.empty();
@@ -112,13 +112,8 @@ public final class SessionHolder {
                 return Optional.empty();
             }
         }
-        if (session.account().hasPlatform(platform)) {
-            this.log_("UUID '" + uuid + "' joined with an open session.");
-            return this.promote_(entry.get(), address, platform);
-        } else {
-            this.log_("UUID '" + uuid + "' has an open session, but it's its first time joining from " + platform.toString().toLowerCase() + ". Verification required.");
-            return Optional.empty();
-        }
+        this.log_("UUID '" + uuid + "' joined with an open session.");
+        return this.promote_(entry.get(), address, platform);
     }
     public Optional<OpenSession> claim(String uuid, InetSocketAddress address, Platform platform)
     {
@@ -128,12 +123,12 @@ public final class SessionHolder {
         return this.claim(platform.accountUuid(player), player.getAddress(), platform);
     }
     public void openNew(Account account, InetSocketAddress address, Platform platform) {
-        Optional<UUID> platformId = account.getPlatformUuid(platform);
-        if (platformId.isEmpty()) {
-            this.log_("Unable to open session: account has no " + platform.toString().toLowerCase() + " UUID.");
+        Optional<UUID> accountId = account.getUuid();
+        if (accountId.isEmpty()) {
+            this.log_("Unable to open session: account has no UUID.");
             return;
         }
-        UUID id = platformId.get();
+        UUID id = accountId.get();
         this.dispose(id);
         if (this.holdTime_ < 1) { return; }
 
@@ -166,32 +161,20 @@ public final class SessionHolder {
     private void log_(String message) {
         this.log_(message, this.loggingLevel_);
     }
-    private Optional<SessionEntry> findSession_(UUID uuid, Platform platform) {
+    private Optional<SessionEntry> findSession_(UUID uuid) {
         OpenSession session = this.sessions_.get(uuid);
         if (session != null) {
             return Optional.of(new SessionEntry(uuid, session));
         }
-        if (!this.crossPlatformSessions_) {
-            return Optional.empty();
-        }
-        return this.sessions_
-                .entrySet()
-                .stream()
-                .filter(entry -> entry.getValue()
-                        .account()
-                        .getPlatformUuid(platform)
-                        .filter(uuid::equals)
-                        .isPresent())
-                .findFirst()
-                .map(entry -> new SessionEntry(entry.getKey(), entry.getValue()));
+        return Optional.empty();
     }
     private Optional<OpenSession> promote_(SessionEntry entry, InetSocketAddress address, Platform platform) {
-        Optional<UUID> platformId = entry.session().account().getPlatformUuid(platform);
-        if (platformId.isEmpty()) {
-            this.log_("Unable to claim session: account has no " + platform.toString().toLowerCase() + " UUID.");
+        Optional<UUID> accountId = entry.session().account().getUuid();
+        if (accountId.isEmpty()) {
+            this.log_("Unable to claim session: account has no UUID.");
             return Optional.empty();
         }
-        UUID id = platformId.get();
+        UUID id = accountId.get();
         this.dispose(entry.key());
         if (!entry.key().equals(id)) {
             this.dispose(id);

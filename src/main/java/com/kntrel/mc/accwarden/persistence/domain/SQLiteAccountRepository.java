@@ -8,7 +8,6 @@ import com.kntrel.mc.accwarden.persistence.sqlite.SQLitePersistenceException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -26,26 +25,17 @@ public final class SQLiteAccountRepository implements AccountRepository {
     }
 
     @Override
-    public Optional<Account> getByJavaId(UUID id) {
+    public Optional<Account> getByUUID(UUID id) {
         try {
-            return this.findByJavaId(id).map(this::toAccount);
+            return this.findByUUID(id).map(this::toAccount);
         } catch (SQLException e) {
-            throw new SQLitePersistenceException("Failed to fetch account for Java UUID '" + id + "'.", e);
-        }
-    }
-
-    @Override
-    public Optional<Account> getByBedrockId(UUID id) {
-        try {
-            return this.findByBedrockId(id).map(this::toAccount);
-        } catch (SQLException e) {
-            throw new SQLitePersistenceException("Failed to fetch account for Bedrock UUID '" + id + "'.", e);
+            throw new SQLitePersistenceException("Failed to fetch account for UUID '" + id + "'.", e);
         }
     }
 
     @Override
     public Set<Account> getAll() {
-        String sql = SELECT_ALL + " ORDER BY account.id;";
+        String sql = SELECT_ALL + " ORDER BY account.uuid;";
         try {
             return this.database_.query(sql, AccountRecord.class)
                     .stream()
@@ -58,7 +48,7 @@ public final class SQLiteAccountRepository implements AccountRepository {
 
     @Override
     public Set<Account> getByName(String name) {
-        String sql = SELECT_ALL + " WHERE LOWER(TRIM(account.name)) = LOWER(TRIM(?)) ORDER BY account.id;";
+        String sql = SELECT_ALL + " WHERE LOWER(TRIM(account.name)) = LOWER(TRIM(?)) ORDER BY account.uuid;";
         try {
             return this.database_.query(sql, AccountRecord.class, name)
                     .stream()
@@ -72,23 +62,12 @@ public final class SQLiteAccountRepository implements AccountRepository {
     @Override
     public void save(Account account) {
         try {
-            if (account instanceof SQLiteAccount sqliteAccount) {
-                if (sqliteAccount.getSQLiteId() < 0) {
-                    this.insert(sqliteAccount);
-                    return;
-                }
-                this.update(sqliteAccount);
-                return;
-            }
-
             Optional<AccountRecord> persistedAccount = this.findPersistedAccount(account);
             if (persistedAccount.isEmpty()) {
                 this.insert(account);
                 return;
             }
-
-            AccountRecord current = persistedAccount.get();
-            this.database_.update(List.of(toRecord(account, current)));
+            this.update(account, persistedAccount.get().joined());
         } catch (SQLException e) {
             throw new SQLitePersistenceException("Failed to persist account '" + account.getName() + "'.", e);
         }
@@ -97,115 +76,38 @@ public final class SQLiteAccountRepository implements AccountRepository {
     @Override
     public void delete(Account account) {
         try {
-            if (account instanceof SQLiteAccount sqliteAccount) {
-                this.database_.delete(List.of(deleteRecord(sqliteAccount.getSQLiteId())));
-                return;
-            }
-
             Optional<AccountRecord> current = this.findPersistedAccount(account);
             if (current.isEmpty()) {
                 return;
             }
-            this.database_.delete(List.of(current.get()));
+            this.database_.delete(List.of(deleteRecord(current.get().uuid())));
         } catch (SQLException e) {
             throw new SQLitePersistenceException("Failed to delete account '" + account.getName() + "'.", e);
         }
     }
 
-    private void update(SQLiteAccount account) throws SQLException {
-        this.database_.update(List.of(toRecord(account, account.getSQLiteId(), account.whenJoined())));
-    }
-
     private Optional<AccountRecord> findPersistedAccount(Account account) throws SQLException {
-        UUID javaUuid = account.getJavaUuid().orElse(null);
-        UUID bedrockUuid = account.getBedrockUuid().orElse(null);
-
-        Optional<AccountRecord> exactMatch = this.findByUuidPair(javaUuid, bedrockUuid);
-        if (exactMatch.isPresent()) {
-            return exactMatch;
-        }
-
-        LinkedHashSet<UUID> playerUuids = new LinkedHashSet<>();
-        if (javaUuid != null) {
-            playerUuids.add(javaUuid);
-        }
-        if (bedrockUuid != null) {
-            playerUuids.add(bedrockUuid);
-        }
-
-        for (UUID playerUuid : playerUuids) {
-            Optional<AccountRecord> found = this.findByJavaId(playerUuid);
-            if (found.isPresent()) {
-                return found;
-            }
-            found = this.findByBedrockId(playerUuid);
-            if (found.isPresent()) {
-                return found;
-            }
-        }
-        return Optional.empty();
+        UUID uuid = account.getUuid()
+                .orElseThrow(() -> new SQLitePersistenceException("Cannot persist account '" + account.getName() + "' without a UUID."));
+        return this.findByUUID(uuid);
     }
 
     private void insert(Account account) throws SQLException {
-        AccountRecord record = toRecord(account, 0L, account.whenJoined());
-        String sql = """
-                INSERT INTO account(java_uuid, bedrock_uuid, name, salt, hashed_password, joined, last_login)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
-                """;
-        this.database_.execute(
-                sql,
-                record.javaUuid(),
-                record.bedrockUuid(),
-                record.name(),
-                record.salt(),
-                record.hashedPassword(),
-                record.joined(),
-                record.lastLogin()
-        );
+        this.database_.insert(List.of(toRecord(account, account.whenJoined())));
     }
 
-    private Optional<AccountRecord> findByJavaId(UUID id) throws SQLException {
-        return this.findByUuidColumn("java_uuid", id);
+    private void update(Account account, LocalDateTime joined) throws SQLException {
+        this.database_.update(List.of(toRecord(account, joined)));
     }
 
-    private Optional<AccountRecord> findByBedrockId(UUID id) throws SQLException {
-        return this.findByUuidColumn("bedrock_uuid", id);
-    }
-
-    private Optional<AccountRecord> findByUuidPair(UUID javaUuid, UUID bedrockUuid) throws SQLException {
-        if (javaUuid == null && bedrockUuid == null) {
-            return Optional.empty();
-        }
-
-        String sql = SELECT_ALL + """
-                 WHERE ((? IS NULL AND account.java_uuid IS NULL) OR account.java_uuid = ?)
-                   AND ((? IS NULL AND account.bedrock_uuid IS NULL) OR account.bedrock_uuid = ?);
-                """;
-        String serializedJavaUuid = javaUuid == null ? null : javaUuid.toString();
-        String serializedBedrockUuid = bedrockUuid == null ? null : bedrockUuid.toString();
-        return this.database_.queryOne(
-                sql,
-                AccountRecord.class,
-                serializedJavaUuid,
-                serializedJavaUuid,
-                serializedBedrockUuid,
-                serializedBedrockUuid
-        );
-    }
-
-    private Optional<AccountRecord> findByUuidColumn(String column, UUID id) throws SQLException {
-        String sql = SELECT_ALL + " WHERE account." + column + " = ?;";
+    private Optional<AccountRecord> findByUUID(UUID id) throws SQLException {
+        String sql = SELECT_ALL + " WHERE account.uuid = ?;";
         return this.database_.queryOne(sql, AccountRecord.class, id.toString());
     }
 
     private Account toAccount(AccountRecord row) {
-        UUID javaUuid = parseUuid(row.javaUuid(), "java_uuid", row.id());
-        UUID bedrockUuid = parseUuid(row.bedrockUuid(), "bedrock_uuid", row.id());
-
         return new SQLiteAccount(
-                row.id(),
-                javaUuid,
-                bedrockUuid,
+                parseUuid(row.uuid(), "uuid"),
                 row.name(),
                 row.salt(),
                 row.hashedPassword(),
@@ -215,31 +117,13 @@ public final class SQLiteAccountRepository implements AccountRepository {
         );
     }
 
-    private static AccountRecord toRecord(Account account, long id, LocalDateTime joined) {
-        return toRecord(account, id, joined, null, null);
-    }
-
-    private static AccountRecord toRecord(Account account, AccountRecord current) {
-        return toRecord(account, current.id(), current.joined(), current.javaUuid(), current.bedrockUuid());
-    }
-
-    private static AccountRecord toRecord(
-            Account account,
-            long id,
-            LocalDateTime joined,
-            String fallbackJavaUuid,
-            String fallbackBedrockUuid
-    ) {
-        String javaUuid = account.getJavaUuid().map(UUID::toString).orElse(fallbackJavaUuid);
-        String bedrockUuid = account.getBedrockUuid().map(UUID::toString).orElse(fallbackBedrockUuid);
-        if (javaUuid == null && bedrockUuid == null) {
-            throw new SQLitePersistenceException("Cannot persist account '" + account.getName() + "' without a Java or Bedrock UUID.");
-        }
+    private static AccountRecord toRecord(Account account, LocalDateTime joined) {
+        String uuid = account.getUuid()
+                .map(UUID::toString)
+                .orElseThrow(() -> new SQLitePersistenceException("Cannot persist account '" + account.getName() + "' without a UUID."));
 
         return new AccountRecord(
-                id,
-                javaUuid,
-                bedrockUuid,
+                uuid,
                 account.getName(),
                 account.getSalt(),
                 account.getHashedPassword(),
@@ -248,18 +132,15 @@ public final class SQLiteAccountRepository implements AccountRepository {
         );
     }
 
-    private static AccountRecord deleteRecord(long id) {
-        return new AccountRecord(id, null, null, "", "", "", null, null);
+    private static AccountRecord deleteRecord(String uuid) {
+        return new AccountRecord(uuid, "", "", "", null, null);
     }
 
-    private static UUID parseUuid(String value, String column, long id) {
-        if (value == null) {
-            return null;
-        }
+    private static UUID parseUuid(String value, String column) {
         try {
             return UUID.fromString(value);
         } catch (IllegalArgumentException e) {
-            throw new SQLitePersistenceException("Invalid UUID in account." + column + " for row " + id + ".", e);
+            throw new SQLitePersistenceException("Invalid UUID in account." + column + ".", e);
         }
     }
 }

@@ -8,24 +8,18 @@ import java.util.UUID;
 
 public interface AccountRepository {
 
-    Optional<Account> getByJavaId(UUID id);
-
-    Optional<Account> getByBedrockId(UUID id);
+    Optional<Account> getByUUID(UUID id);
 
     default Optional<Account> get(Player player) {
-        return this.getByJavaId(player.getUniqueId());
+        return this.getByUUID(player.getUniqueId());
     }
 
     Set<Account> getAll();
 
     Set<Account> getByName(String name);
 
-    default boolean existsByJavaId(UUID id) {
-        return this.getByJavaId(id).isPresent();
-    }
-
-    default boolean existsByBedrockId(UUID id) {
-        return this.getByBedrockId(id).isPresent();
+    default boolean existsByUUID(UUID id) {
+        return this.getByUUID(id).isPresent();
     }
 
     default boolean exists(Player player) {

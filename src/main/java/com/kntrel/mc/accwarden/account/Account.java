@@ -4,7 +4,6 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
-import com.kntrel.mc.accwarden.platform.Platform;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -16,8 +15,7 @@ public class Account {
     //FIELDS
     private final String name_;
     private AccountRepository repository_;
-    private UUID javaUuid_ = null;
-    private UUID bedrockUuid_ = null;
+    private UUID uuid_ = null;
     private LocalDateTime joined_ = LocalDateTime.now();
     private LocalDateTime lastLogged_ = LocalDateTime.now();
     private byte[] hash_ = new byte[0];
@@ -36,17 +34,11 @@ public class Account {
     }
 
     //Setters
-    public void linkJava(UUID uuid) {
+    public void setUuid(UUID uuid) {
         if (uuid == null) {
-            throw new IllegalArgumentException("Java UUID cannot be null.");
+            throw new IllegalArgumentException("Account UUID cannot be null.");
         }
-        this.javaUuid_ = uuid;
-    }
-    public void linkBedrock(UUID uuid) {
-        if (uuid == null) {
-            throw new IllegalArgumentException("Bedrock UUID cannot be null.");
-        }
-        this.bedrockUuid_ = uuid;
+        this.uuid_ = uuid;
     }
     public void setSizes(int min, int max) {
         this.minLength_ = min; this.maxLength_ = max;
@@ -67,15 +59,13 @@ public class Account {
         this.repository_ = repository;
     }
     protected void load(
-            UUID javaUuid,
-            UUID bedrockUuid,
+            UUID uuid,
             String salt,
             String hashedPassword,
             LocalDateTime joined,
             LocalDateTime lastLogged
     ) {
-        this.javaUuid_ = javaUuid;
-        this.bedrockUuid_ = bedrockUuid;
+        this.uuid_ = uuid;
         this.setSalt(salt);
         this.setHash(hashedPassword);
         this.setJoined(joined == null ? LocalDateTime.now() : joined);
@@ -95,31 +85,15 @@ public class Account {
     public LocalDateTime whenLastLogged() {
         return this.lastLogged_;
     }
-    public boolean hasJava() {
-        return this.javaUuid_ != null;
-    }
-    public boolean hasBedrock() {
-        return this.bedrockUuid_ != null;
-    }
-    public boolean hasPlatform(Platform platform) {
-        if (platform.isJava()) { return this.hasJava(); }
-        if (platform.isBedrock()) { return this.hasBedrock(); }
-        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
+    public boolean hasUuid() {
+        return this.uuid_ != null;
     }
     public boolean isLocked() { return false; }
     public AccountRepository getRepository() {
         return this.repository_;
     }
-    public Optional<UUID> getJavaUuid() {
-        return Optional.ofNullable(this.javaUuid_);
-    }
-    public Optional<UUID> getBedrockUuid() {
-        return Optional.ofNullable(this.bedrockUuid_);
-    }
-    public Optional<UUID> getPlatformUuid(Platform platform) {
-        if (platform.isJava()) { return this.getJavaUuid(); }
-        if (platform.isBedrock()) { return this.getBedrockUuid(); }
-        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
+    public Optional<UUID> getUuid() {
+        return Optional.ofNullable(this.uuid_);
     }
     public String getSalt() {
         return new String(this.salt_, StandardCharsets.UTF_8);
@@ -157,11 +131,8 @@ public class Account {
     @Override
     public String toString() {
         return
-                "Java UUID: " + this.javaUuid_
-                + "\nBedrock UUID: " + this.bedrockUuid_
+                "UUID: " + this.uuid_
                 + "\nSalt: " + new String(this.salt_,StandardCharsets.UTF_8)
-                + "\nJava: " + this.hasJava()
-                + "\nBedrock:" + this.hasBedrock()
                 + "\nJoined on: " + this.joined_.toString()
                 + "\nLast joined on: " + this.lastLogged_.toString();
     }

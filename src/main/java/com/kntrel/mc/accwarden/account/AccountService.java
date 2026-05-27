@@ -33,13 +33,8 @@ public final class AccountService implements AccountRepository {
     }
 
     @Override
-    public Optional<Account> getByJavaId(UUID id) {
-        return this.delegate_.getByJavaId(id).map(this::prepare);
-    }
-
-    @Override
-    public Optional<Account> getByBedrockId(UUID id) {
-        return this.delegate_.getByBedrockId(id).map(this::prepare);
+    public Optional<Account> getByUUID(UUID id) {
+        return this.delegate_.getByUUID(id).map(this::prepare);
     }
 
     @Override
@@ -77,20 +72,7 @@ public final class AccountService implements AccountRepository {
     }
 
     public Optional<Account> get(Player player, Platform platform) {
-        UUID uuid = platform.accountUuid(player);
-        if (platform.isJava()) { return this.getByJavaId(uuid); }
-        if (platform.isBedrock()) { return this.getByBedrockId(uuid); }
-        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
-    }
-
-    public Optional<Account> getFirstTimePlatformAccount(Player player, Platform platform) {
-        if (!this.plugin_.getAccWardenConfig().playerNameAutoLinking()) {
-            return Optional.empty();
-        }
-        return this.getByName(player.getName())
-                .stream()
-                .filter(account -> !account.hasPlatform(platform))
-                .findFirst();
+        return this.getByUUID(platform.accountUuid(player));
     }
 
     public boolean exists(Player player, Platform platform) {
@@ -105,8 +87,7 @@ public final class AccountService implements AccountRepository {
     @Override
     public void delete(Account account) {
         this.delegate_.delete(account);
-        account.getJavaUuid().map(Bukkit::getPlayer).ifPresent(this::kickDeletedAccount);
-        account.getBedrockUuid().map(Bukkit::getPlayer).ifPresent(this::kickDeletedAccount);
+        account.getUuid().map(Bukkit::getPlayer).ifPresent(this::kickDeletedAccount);
     }
 
     @Nonnull
@@ -146,16 +127,7 @@ public final class AccountService implements AccountRepository {
     }
 
     public void link(Account account, Player player, Platform platform) {
-        UUID uuid = platform.accountUuid(player);
-        if (platform.isJava()) {
-            account.linkJava(uuid);
-            return;
-        }
-        if (platform.isBedrock()) {
-            account.linkBedrock(uuid);
-            return;
-        }
-        throw new IllegalArgumentException("Unsupported platform: " + platform.key());
+        account.setUuid(platform.accountUuid(player));
     }
 
     private void kickDeletedAccount(Player player) {

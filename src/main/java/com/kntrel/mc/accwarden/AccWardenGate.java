@@ -1,7 +1,5 @@
 package com.kntrel.mc.accwarden;
 
-import com.kntrel.mc.accwarden.account.link.AccountLinkResult;
-import com.kntrel.mc.accwarden.account.link.AccountLinker;
 import com.kntrel.mc.accwarden.session.SessionResult;
 import com.kntrel.mc.accwarden.session.SessionService;
 import org.bukkit.Bukkit;
@@ -28,11 +26,9 @@ final class AccWardenGate implements Listener {
     private final SessionService sessionService_;
     private final NamespacedKey notLoggedKey_;
     private final NamespacedKey gameModeKey_;
-    private final AccountLinker accountLinker_;
 
-    public AccWardenGate(AccWarden plugin, AccountLinker accountLinker) {
+    public AccWardenGate(AccWarden plugin) {
         this.plugin_ = Objects.requireNonNull(plugin, "plugin");
-        this.accountLinker_ = Objects.requireNonNull(accountLinker, "accountLinker");
         this.sessionService_ = this.plugin_.getSessionService();
         this.notLoggedKey_ = new NamespacedKey(plugin, "notLogged");
         this.gameModeKey_ = new NamespacedKey(plugin, "loggedGameMode");
@@ -41,12 +37,6 @@ final class AccWardenGate implements Listener {
     @EventHandler
     void OnPlayerJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-
-        AccountLinkResult link = this.accountLinker_.link(player);
-        if (!link.isNoOp()) {
-            this.kickLinked_(player, link);
-            return;
-        }
 
         CompletableFuture<SessionResult> session = this.sessionService_.openSession(player);
         if (!session.isDone()) {
@@ -183,21 +173,6 @@ final class AccWardenGate implements Listener {
         player.kickPlayer(this.plugin_.getRunical()
                 .translate(player, "error.kicked.not_logged")
                 .orDefault("")
-                .message());
-    }
-
-    private void kickLinked_(Player player, AccountLinkResult link) {
-        String key = switch (link) {
-            case LINKED_TO_JAVA -> "info.account_linked_to_java";
-            case LINKED_TO_BEDROCK -> "info.account_linked_to_bedrock";
-            default -> "info.account_linked";
-        };
-        player.kickPlayer(this.plugin_.getRunical()
-                .translate(player, key)
-                .orDefault(this.plugin_.getRunical()
-                        .translate(player, "info.account_linked")
-                        .orDefault("We've synced your Java and Bedrock accounts. Please re-join.")
-                        .message())
                 .message());
     }
 
