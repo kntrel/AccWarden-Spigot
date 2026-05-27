@@ -48,6 +48,9 @@ public final class SessionHolder {
     public Optional<OpenSession> get(Player player) {
         return this.get(player.getUniqueId());
     }
+    public Optional<OpenSession> get(Player player, Platform platform) {
+        return this.get(platform.accountUuid(player));
+    }
     public boolean has(UUID uuid) {
         return this.get(uuid).isPresent();
     }
@@ -69,6 +72,9 @@ public final class SessionHolder {
     }
     public void dispose(Player player) {
         this.dispose(player.getUniqueId());
+    }
+    public void dispose(Player player, Platform platform) {
+        this.dispose(platform.accountUuid(player));
     }
     public Optional<OpenSession> open(Account account, InetSocketAddress address, Platform platform) {
         Optional<UUID> platformId = account.getPlatformUuid(platform);
@@ -119,7 +125,7 @@ public final class SessionHolder {
         return this.claim(UUID.fromString(uuid), address, platform);
     }
     public Optional<OpenSession> claim(Player player, Platform platform) {
-        return this.claim(player.getUniqueId(), player.getAddress(), platform);
+        return this.claim(platform.accountUuid(player), player.getAddress(), platform);
     }
     public void openNew(Account account, InetSocketAddress address, Platform platform) {
         Optional<UUID> platformId = account.getPlatformUuid(platform);

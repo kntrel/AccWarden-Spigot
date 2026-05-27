@@ -77,8 +77,9 @@ public final class AccountService implements AccountRepository {
     }
 
     public Optional<Account> get(Player player, Platform platform) {
-        if (platform.isJava()) { return this.getByJavaId(player.getUniqueId()); }
-        if (platform.isBedrock()) { return this.getByBedrockId(player.getUniqueId()); }
+        UUID uuid = platform.accountUuid(player);
+        if (platform.isJava()) { return this.getByJavaId(uuid); }
+        if (platform.isBedrock()) { return this.getByBedrockId(uuid); }
         throw new IllegalArgumentException("Unsupported platform: " + platform.key());
     }
 
@@ -145,12 +146,13 @@ public final class AccountService implements AccountRepository {
     }
 
     public void link(Account account, Player player, Platform platform) {
+        UUID uuid = platform.accountUuid(player);
         if (platform.isJava()) {
-            account.linkJava(player.getUniqueId());
+            account.linkJava(uuid);
             return;
         }
         if (platform.isBedrock()) {
-            account.linkBedrock(player.getUniqueId());
+            account.linkBedrock(uuid);
             return;
         }
         throw new IllegalArgumentException("Unsupported platform: " + platform.key());

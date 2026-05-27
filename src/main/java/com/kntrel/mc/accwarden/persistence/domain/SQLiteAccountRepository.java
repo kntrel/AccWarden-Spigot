@@ -58,7 +58,7 @@ public final class SQLiteAccountRepository implements AccountRepository {
 
     @Override
     public Set<Account> getByName(String name) {
-        String sql = SELECT_ALL + " WHERE account.name = ? ORDER BY account.id;";
+        String sql = SELECT_ALL + " WHERE LOWER(TRIM(account.name)) = LOWER(TRIM(?)) ORDER BY account.id;";
         try {
             return this.database_.query(sql, AccountRecord.class, name)
                     .stream()

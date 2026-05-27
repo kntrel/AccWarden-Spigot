@@ -1,12 +1,15 @@
 package com.kntrel.mc.accwarden;
 
 import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.account.link.AccountLinker;
+import com.kntrel.mc.accwarden.account.link.PlainAccountLinker;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
 import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
 import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import com.kntrel.mc.accwarden.platform.bedrock.BedrockPlatform;
+import com.kntrel.mc.accwarden.platform.bedrock.FloodgateAccountLinker;
 import com.kntrel.mc.accwarden.platform.bedrock.JavaAndBedrockPlatformRouter;
 import com.kntrel.mc.accwarden.platform.java.JavaPlatform;
 import com.kntrel.mc.accwarden.session.SessionHolder;
@@ -29,6 +32,7 @@ public final class AccWarden extends JavaPlugin {
     private SessionHolder sessionHolder_;
     private SessionService sessionService_;
     private PlatformRouter platformRouter_;
+    private AccountLinker accountLinker_;
 
 
     //PLUGIN LOGIC
@@ -51,10 +55,12 @@ public final class AccWarden extends JavaPlugin {
         this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
 
         this.sessionService_ = new SessionService(this, this.accountService_, this.sessionHolder_);
-        this.platformRouter_ = this.createPlatformRouter_();
+        BedrockCompatibility bedrockCompatibility = this.createBedrockCompatibility_();
+        this.platformRouter_ = bedrockCompatibility.platformRouter();
+        this.accountLinker_ = bedrockCompatibility.accountLinker();
         this.sessionService_.setRouter(this.platformRouter_);
 
-        this.getServer().getPluginManager().registerEvents(new AccWardenGate(this), this);
+        this.getServer().getPluginManager().registerEvents(new AccWardenGate(this, this.accountLinker_), this);
     }
 
     @Override
@@ -95,8 +101,9 @@ public final class AccWarden extends JavaPlugin {
         return this.require_(this.platformRouter_, "Platform router has not been initialized.");
     }
 
-    private PlatformRouter createPlatformRouter_() {
+    private BedrockCompatibility createBedrockCompatibility_() {
         Platform javaPlatform = new JavaPlatform(this);
+        AccountLinker plainAccountLinker = new PlainAccountLinker();
 
         //DANGER ZONE ----------------------------------------
         //Entry point for Geyser & Floodgate API's, only if Floodgate is present
@@ -104,15 +111,21 @@ public final class AccWarden extends JavaPlugin {
             && this.getServer().getPluginManager().isPluginEnabled("Geyser-Spigot")
         ) try {
             Platform bedrockPlatform = new BedrockPlatform(this);
+            AccountLinker floodgateAccountLinker = new FloodgateAccountLinker(this);
             this.getLogger().info("The server uses Geyser and Floodgate. Switching to Bedrock compatibility mode.");
-            return new JavaAndBedrockPlatformRouter(javaPlatform, bedrockPlatform);
+            return new BedrockCompatibility(
+                    new JavaAndBedrockPlatformRouter(javaPlatform, bedrockPlatform),
+                    floodgateAccountLinker
+            );
         } catch (LinkageError | RuntimeException ex) {
             this.getLogger().log(Level.WARNING, "Failed to initialize Bedrock platform support. Falling back to Java forms.", ex);
         }
         //----------------------------------------------------
 
-        return new JavaOnlyPlatformRouter(javaPlatform);
+        return new BedrockCompatibility(new JavaOnlyPlatformRouter(javaPlatform), plainAccountLinker);
     }
+
+    private record BedrockCompatibility(PlatformRouter platformRouter, AccountLinker accountLinker) {}
 
     private <T> T require_(T value, String message) {
         if (value == null) {

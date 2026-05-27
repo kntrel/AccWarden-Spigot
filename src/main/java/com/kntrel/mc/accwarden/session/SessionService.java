@@ -52,12 +52,13 @@ public final class SessionService {
         this.accountService_.get(player, platform)
                 .ifPresentOrElse(
                         account -> this.sessionHolder_.openNew(account, player, platform),
-                        () -> this.sessionHolder_.dispose(player)
+                        () -> this.sessionHolder_.dispose(player, platform)
                 );
     }
 
     public void logOut(Player player) {
-        this.sessionHolder_.dispose(player);
+        Platform platform = this.requireRouter_().getPlatform(player);
+        this.sessionHolder_.dispose(player, platform);
     }
 
     private OpenSession openSession_(Player player, Platform platform, Account account) throws LogginException {
