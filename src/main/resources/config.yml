@@ -3,10 +3,11 @@
 #inside the ./translations folder.
 defaultLanguage: "en"
 
-#If enabled, players from Java and Bedrock with the same username will be automatically linked through floodgate,
+#If enabled, every Bedrock login will be linked through Floodgate to the offline Java UUID for its Java-side name.
 #Bedrock and Java will share the same password and payer data/progress.
 # - 'username-prefix' setting in the Floodgate config file must be set to an empty string ("").
-# - Local linking must be configured in Floodgate.
+# - Local linking storage must be configured in Floodgate.
+# - Floodgate linking commands must be disabled.
 playerNameAutoLinking: false
 
 sessions:

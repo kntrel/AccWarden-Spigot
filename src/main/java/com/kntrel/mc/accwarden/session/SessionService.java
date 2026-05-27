@@ -92,16 +92,6 @@ public final class SessionService {
             return this.startAuthentication_(player, platform, account.get(), AuthenticationViewState.regular());
         }
 
-        var firstTimePlatformAccount = this.accountService_.getFirstTimePlatformAccount(player, platform);
-        if (firstTimePlatformAccount.isPresent()) {
-            return this.startAuthentication_(
-                    player,
-                    platform,
-                    firstTimePlatformAccount.get(),
-                    AuthenticationViewState.platformFirstTime()
-            );
-        }
-
         return this.startRegistration_(player, platform, RegistrationViewState.initial());
     }
 
@@ -130,9 +120,6 @@ public final class SessionService {
         if (action instanceof AuthenticationAction.Password password) {
             try {
                 Account loggedAccount = this.accountService_.authenticate(account, password.password());
-                if (!loggedAccount.hasPlatform(platform)) {
-                    this.accountService_.link(loggedAccount, player, platform);
-                }
                 return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, loggedAccount, SessionResult::opened));
             } catch (LogginException ex) {
                 return this.authenticationFailure_(player, platform, account, state, ex);
