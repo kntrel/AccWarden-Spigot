@@ -7,12 +7,9 @@ import java.util.UUID;
 
 public interface Platform {
 
-    String JAVA_KEY = "java";
-    String BEDROCK_KEY = "bedrock";
-
     String displayName();
 
-    String key();
+    PlatformKey key();
 
     FormRenderer formRenderer();
 
@@ -23,10 +20,10 @@ public interface Platform {
     }
 
     default boolean isJava() {
-        return this.key().equals(JAVA_KEY);
+        return this.key() == PlatformKey.JAVA;
     }
 
     default boolean isBedrock() {
-        return this.key().equals(BEDROCK_KEY);
+        return this.key() == PlatformKey.BEDROCK;
     }
 }

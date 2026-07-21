@@ -10,6 +10,7 @@ record AccountRecord(
         @Column("name") String name,
         @Column("salt") String salt,
         @Column("hashed_password") String hashedPassword,
+        @Column("platform_joined") byte platformJoined,
         @Column("joined") LocalDateTime joined,
         @Column("last_login") LocalDateTime lastLogin
 ) {}

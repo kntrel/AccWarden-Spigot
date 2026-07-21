@@ -4,7 +4,7 @@ import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountRepository;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLitePersistenceException;
-
+import com.kntrel.mc.accwarden.platform.PlatformKey;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -111,6 +111,7 @@ public final class SQLiteAccountRepository implements AccountRepository {
                 row.name(),
                 row.salt(),
                 row.hashedPassword(),
+                decodeJoinedPlatforms(row.platformJoined()),
                 row.joined(),
                 row.lastLogin()
         );
@@ -126,13 +127,32 @@ public final class SQLiteAccountRepository implements AccountRepository {
                 account.getName(),
                 account.getSalt(),
                 account.getHashedPassword(),
+                encodeJoinedPlatforms(account.getJoinedFromPlatforms()),
                 joined,
                 account.whenLastLogged()
         );
     }
 
     private static AccountRecord deleteRecord(String uuid) {
-        return new AccountRecord(uuid, "", "", "", null, null);
+        return new AccountRecord(uuid, "", "", "", (byte) 0, null, null);
+    }
+
+    private static Set<PlatformKey> decodeJoinedPlatforms(byte value) {
+        return switch (value) {
+            case 0 -> Set.of(PlatformKey.JAVA);
+            case 1 -> Set.of(PlatformKey.BEDROCK);
+            case 2 -> Set.of(PlatformKey.JAVA, PlatformKey.BEDROCK);
+            default -> throw new SQLitePersistenceException("Invalid account.platform_joined value '" + value + "'.");
+        };
+    }
+
+    private static byte encodeJoinedPlatforms(Set<PlatformKey> platforms) {
+        boolean java = platforms.contains(PlatformKey.JAVA);
+        boolean bedrock = platforms.contains(PlatformKey.BEDROCK);
+        if (java && bedrock) return 2;
+        if (bedrock) return 1;
+        if (java) return 0;
+        throw new SQLitePersistenceException("An account must have at least one joined platform.");
     }
 
     private static UUID parseUuid(String value, String column) {

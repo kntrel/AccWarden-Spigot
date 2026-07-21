@@ -3,6 +3,7 @@ package com.kntrel.mc.accwarden.platform.java;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.form.FormRenderer;
 import com.kntrel.mc.accwarden.platform.Platform;
+import com.kntrel.mc.accwarden.platform.PlatformKey;
 import com.kntrel.mc.accwarden.platform.PlatformViews;
 import com.kntrel.mc.runical.bukkit.Translator;
 
@@ -18,8 +19,8 @@ public final class JavaPlatform implements Platform {
         this.formRenderer_ = new JavaFormRenderer(plugin);
         Translator translator = plugin.getRunical();
         this.views_ = new JavaViews(
-                translator.getChild("registration_form").getChild(Platform.JAVA_KEY),
-                translator.getChild("authentication_form").getChild(Platform.JAVA_KEY)
+                translator.getChild("registration_form").getChild(PlatformKey.JAVA.value()),
+                translator.getChild("authentication_form").getChild(PlatformKey.JAVA.value())
         );
     }
 
@@ -29,8 +30,8 @@ public final class JavaPlatform implements Platform {
     }
 
     @Override
-    public String key() {
-        return Platform.JAVA_KEY;
+    public PlatformKey key() {
+        return PlatformKey.JAVA;
     }
 
     @Override

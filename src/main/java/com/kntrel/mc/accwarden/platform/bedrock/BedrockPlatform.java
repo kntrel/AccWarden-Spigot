@@ -3,6 +3,7 @@ package com.kntrel.mc.accwarden.platform.bedrock;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.form.FormRenderer;
 import com.kntrel.mc.accwarden.platform.Platform;
+import com.kntrel.mc.accwarden.platform.PlatformKey;
 import com.kntrel.mc.accwarden.platform.PlatformViews;
 import com.kntrel.mc.runical.bukkit.Translator;
 
@@ -18,8 +19,8 @@ public final class BedrockPlatform implements Platform {
         this.formRenderer_ = new BedrockFormRenderer(plugin);
         Translator translator = plugin.getRunical();
         this.views_ = new BedrockViews(
-                translator.getChild("registration_form").getChild(Platform.BEDROCK_KEY),
-                translator.getChild("authentication_form").getChild(Platform.BEDROCK_KEY)
+                translator.getChild("registration_form").getChild(PlatformKey.BEDROCK.value()),
+                translator.getChild("authentication_form").getChild(PlatformKey.BEDROCK.value())
         );
     }
 
@@ -29,8 +30,8 @@ public final class BedrockPlatform implements Platform {
     }
 
     @Override
-    public String key() {
-        return Platform.BEDROCK_KEY;
+    public PlatformKey key() {
+        return PlatformKey.BEDROCK;
     }
 
     @Override

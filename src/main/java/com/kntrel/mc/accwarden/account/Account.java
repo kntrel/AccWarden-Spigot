@@ -2,10 +2,13 @@ package com.kntrel.mc.accwarden.account;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
+import com.kntrel.mc.accwarden.platform.PlatformKey;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public class Account {
@@ -18,6 +21,7 @@ public class Account {
     private LocalDateTime lastLogged_ = LocalDateTime.now();
     private byte[] hash_ = new byte[0];
     private byte[] salt_ = new byte[16];
+    private final Set<PlatformKey> joinedFromPlatforms_ = new HashSet<>();
 
     //CONSTRUCTORS
     protected Account(String name, AccountService service) {
@@ -53,6 +57,10 @@ public class Account {
     protected void setLastLogged(LocalDateTime dateTime) {
         this.lastLogged_ = dateTime;
     }
+    protected void setJoinedFromPlatforms(Set<PlatformKey> platforms) {
+        this.joinedFromPlatforms_.clear();
+        this.joinedFromPlatforms_.addAll(platforms);
+    }
     void setService(AccountService service) {
         this.service_ = service;
     }
@@ -63,12 +71,14 @@ public class Account {
             UUID uuid,
             String salt,
             String hashedPassword,
+            Set<PlatformKey> joinedFromPlatforms,
             LocalDateTime joined,
             LocalDateTime lastLogged
     ) {
         this.uuid_ = uuid;
         this.setSalt(salt);
         this.setHash(hashedPassword);
+        this.setJoinedFromPlatforms(joinedFromPlatforms);
         this.setJoined(joined == null ? LocalDateTime.now() : joined);
         this.setLastLogged(lastLogged == null ? this.joined_ : lastLogged);
     }
@@ -104,6 +114,12 @@ public class Account {
     }
     public String getHashedPassword() {
         return new String(this.hash_, StandardCharsets.UTF_8);
+    }
+    public Set<PlatformKey> getJoinedFromPlatforms() {
+        return Set.copyOf(this.joinedFromPlatforms_);
+    }
+    public boolean markJoinedFrom(PlatformKey platform) {
+        return this.joinedFromPlatforms_.add(platform);
     }
 
     //METHODS

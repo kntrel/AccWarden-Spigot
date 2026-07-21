@@ -103,17 +103,20 @@ public final class AccountService implements AccountRepository {
     @Nonnull
     public Account login(Player player, Platform platform, String password) throws LogginException {
         Account account = this.get(player, platform).orElseThrow(() -> new LogginException(LogginException.Reason.ACCOUNT_NOT_FOUND));
-        return this.authenticate(account, password);
+        return this.authenticate(account, platform, password);
     }
 
     @Nonnull
-    public Account authenticate(Account account, String password) throws LogginException {
+    public Account authenticate(Account account, Platform platform, String password) throws LogginException {
         account = this.prepare(account);
         if (account.isLocked()) {
             throw new LogginException(LogginException.Reason.ACCOUNT_LOCKED, account);
         }
         if (!account.checkPassword(password)) {
             throw new LogginException(LogginException.Reason.INCORRECT_PASSWORD, account);
+        }
+        if (account.markJoinedFrom(platform.key())) {
+            this.save(account);
         }
         return account;
     }
@@ -156,6 +159,7 @@ public final class AccountService implements AccountRepository {
 
     public void link(Account account, Player player, Platform platform) {
         account.setUuid(platform.accountUuid(player));
+        account.markJoinedFrom(platform.key());
     }
 
     private void kickDeletedAccount(Player player) {
