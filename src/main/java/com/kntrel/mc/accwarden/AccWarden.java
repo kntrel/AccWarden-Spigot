@@ -49,7 +49,6 @@ public final class AccWarden extends JavaPlugin {
 
         this.accountService_ = AccountService.create(this);
         this.sessionHolder_ = new SessionHolder(this);
-        this.sessionHolder_.setCrossPlatformSessions(this.CONFIG.crossPlatformSessions());
         this.sessionHolder_.setHoldTime(this.CONFIG.sessionHoldTime());
 
         this.sessionService_ = new SessionService(this, this.accountService_, this.sessionHolder_);

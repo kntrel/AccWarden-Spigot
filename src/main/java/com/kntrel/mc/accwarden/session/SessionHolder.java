@@ -8,29 +8,37 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.function.BiConsumer;
 
 public final class SessionHolder {
 
     //FIELDS
     private final HashMap<UUID, OpenSession> sessions_ = new HashMap<>();
     private final HashMap<UUID, BukkitRunnable> closers_ = new HashMap<>();
-    private final JavaPlugin plugin_;
+    private final Logger logger_;
+    private final BiConsumer<BukkitRunnable, Long> scheduleCloser_;
     private Level loggingLevel_ = Level.FINEST;
-    private boolean crossPlatformSessions_ = false;
     private int holdTime_ = 0;
 
     //CONSTRUCTORS
     public SessionHolder(JavaPlugin plugin) {
-        this.plugin_ = plugin;
+        this(
+                Objects.requireNonNull(plugin, "plugin").getLogger(),
+                (closer, delay) -> closer.runTaskLater(plugin, delay)
+        );
+    }
+
+    SessionHolder(Logger logger, BiConsumer<BukkitRunnable, Long> scheduleCloser) {
+        this.logger_ = Objects.requireNonNull(logger, "logger");
+        this.scheduleCloser_ = Objects.requireNonNull(scheduleCloser, "scheduleCloser");
     }
 
     //SETTERS
-    public void setCrossPlatformSessions(boolean b) {
-        this.crossPlatformSessions_ = b;
-    }
     public void setHoldTime(int seconds) {
         this.holdTime_ = seconds;
     }
@@ -103,14 +111,11 @@ public final class SessionHolder {
             this.log_("Found an open session for UUID " + uuid.toString() + ", but the IP address doesn't match");
             return Optional.empty();
         }
-        if (!this.crossPlatformSessions_) {
-            if (session.platform().equals(platform)) {
-                this.log_("UUID '" + uuid + "' joined with an open session.");
-                return this.promote_(entry.get(), address, platform);
-            } else {
-                this.log_( "UUID '" + uuid + "' has an open session, but joined form a different platform. The 'crossPlatformLogin' setting is disabled. Denying access.");
-                return Optional.empty();
-            }
+        if (session.platform().key() != platform.key()) {
+            this.log_("UUID '" + uuid + "' has a cached session from "
+                    + session.platform().displayName() + ", but is joining from "
+                    + platform.displayName() + ". Cached authentication never crosses platform boundaries.");
+            return Optional.empty();
         }
         this.log_("UUID '" + uuid + "' joined with an open session.");
         return this.promote_(entry.get(), address, platform);
@@ -145,7 +150,7 @@ public final class SessionHolder {
         this.sessions_.put(id, new OpenSession(account, address, platform));
         this.closers_.put(id, closer);
 
-        closer.runTaskLater(this.plugin_, ((long) this.holdTime_) * 20);
+        this.scheduleCloser_.accept(closer, ((long) this.holdTime_) * 20);
 
         this.log_("Session for UUID " + id + " open.");
 
@@ -156,7 +161,7 @@ public final class SessionHolder {
 
     //PRIVATE METHODS
     private void log_(String message, Level level) {
-        this.plugin_.getLogger().log(level, message);
+        this.logger_.log(level, message);
     }
     private void log_(String message) {
         this.log_(message, this.loggingLevel_);

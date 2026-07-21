@@ -29,8 +29,11 @@ public final class JavaAndBedrockPlatformRouter implements PlatformRouter {
     private boolean isFloodgatePlayer_(Player player) {
         try {
             return FloodgateApi.getInstance().isFloodgatePlayer(player.getUniqueId());
-        } catch (LinkageError | RuntimeException ignored) {
-            return false;
+        } catch (LinkageError | RuntimeException exception) {
+            throw new IllegalStateException(
+                    "Unable to determine whether player '" + player.getName() + "' joined through Floodgate.",
+                    exception
+            );
         }
     }
 }

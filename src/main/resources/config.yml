@@ -13,11 +13,8 @@ playerNameAutoLinking: false
 sessions:
   #If a player leaves the game, how long to keep their session alive, so they don't have to re-enter their password.
   #as long as they re-join from the same IP address. In seconds. 0 or less will disable this feature.
+  #Cached sessions are bound to the edition they authenticated from and never transfer between Java and Bedrock.
   holdTime: 300
-
-  #Wheather or not to allow a player to leave and re-join the server from a different platform (Java, Bedrock) without
-  #re-entering the password, withing the timeframe specified bellow, and from the same IP address.
-  crossPlatform: false
 
 failed_login_count:
   #If true, a player's account will be locked and access to the server will be denied after entering the wrong

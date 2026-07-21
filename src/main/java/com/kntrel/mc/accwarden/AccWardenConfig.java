@@ -5,7 +5,6 @@ import org.bukkit.configuration.ConfigurationSection;
 public record AccWardenConfig(
         String defaultLanguage,
         boolean playerNameAutoLinking,
-        boolean crossPlatformSessions,
         int sessionHoldTime,
         boolean failLoginAccountLock,
         int failLoginOdd,
@@ -16,7 +15,6 @@ public record AccWardenConfig(
 ) {
     public static final AccWardenConfig DEFAULT = new AccWardenConfig(
             "en",
-            false,
             false,
             300,
             false,
@@ -31,7 +29,6 @@ public record AccWardenConfig(
         return new AccWardenConfig(
                 config.getString("defaultLanguage", DEFAULT.defaultLanguage()),
                 config.getBoolean("playerNameAutoLinking", DEFAULT.playerNameAutoLinking()),
-                config.getBoolean("sessions.crossPlatform", DEFAULT.crossPlatformSessions()),
                 config.getInt("sessions.holdTime", DEFAULT.sessionHoldTime()),
                 config.getBoolean("failed_login_count.accountLock", DEFAULT.failLoginAccountLock()),
                 config.getInt("failed_login_count.odd", DEFAULT.failLoginOdd()),

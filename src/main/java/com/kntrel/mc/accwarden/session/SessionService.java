@@ -72,6 +72,7 @@ public final class SessionService {
         }
 
         preparedAccount.markLoggedIn();
+        preparedAccount.markJoinedFrom(platform.key());
         this.accountService_.save(preparedAccount);
         OpenSession session = this.sessionHolder_
                 .open(preparedAccount, player, platform)
@@ -124,7 +125,7 @@ public final class SessionService {
     ) {
         if (action instanceof AuthenticationAction.Password password) {
             try {
-                Account loggedAccount = this.accountService_.authenticate(account, platform, password.password());
+                Account loggedAccount = this.accountService_.authenticate(account, password.password());
                 return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, loggedAccount, SessionResult::opened));
             } catch (LogginException ex) {
                 return this.authenticationFailure_(player, platform, account, state, ex);
