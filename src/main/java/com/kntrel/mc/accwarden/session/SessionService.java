@@ -93,7 +93,11 @@ public final class SessionService {
             return this.startRegistration_(player, platform, RegistrationViewState.initial());
         }
 
-        return this.startAuthentication_(player, platform, account.get(), AuthenticationViewState.regular());
+        AuthenticationViewState authenticationViewState = account.get().getJoinedFromPlatforms().contains(platform.key())
+                ? AuthenticationViewState.regular()
+                : AuthenticationViewState.platformFirstTime();
+
+        return this.startAuthentication_(player, platform, account.get(), authenticationViewState);
     }
 
     private CompletableFuture<SessionResult> startAuthentication_(
