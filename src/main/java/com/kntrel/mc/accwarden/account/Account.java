@@ -2,8 +2,6 @@ package com.kntrel.mc.accwarden.account;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
-import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
-import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -14,23 +12,26 @@ public class Account {
 
     //FIELDS
     private final String name_;
-    private AccountRepository repository_;
+    private AccountService service_;
     private UUID uuid_ = null;
     private LocalDateTime joined_ = LocalDateTime.now();
     private LocalDateTime lastLogged_ = LocalDateTime.now();
     private byte[] hash_ = new byte[0];
     private byte[] salt_ = new byte[16];
-    private int minLength_ = 0, maxLength_ = 12;
 
     //CONSTRUCTORS
-    protected Account(String name, AccountRepository repository) {
+    protected Account(String name, AccountService service) {
         this.name_ = name;
-        this.repository_ = repository;
+        this.service_ = service;
 
         Random random = new Random();
         for (int i = 0; i < this.salt_.length; i++) {
             this.salt_[i] = (byte) random.nextInt(97, 123);
         }
+    }
+
+    protected Account(String name) {
+        this(name, null);
     }
 
     //Setters
@@ -39,9 +40,6 @@ public class Account {
             throw new IllegalArgumentException("Account UUID cannot be null.");
         }
         this.uuid_ = uuid;
-    }
-    public void setSizes(int min, int max) {
-        this.minLength_ = min; this.maxLength_ = max;
     }
     protected void setSalt(String salt) {
         this.salt_ = salt.getBytes(StandardCharsets.UTF_8);
@@ -55,8 +53,11 @@ public class Account {
     protected void setLastLogged(LocalDateTime dateTime) {
         this.lastLogged_ = dateTime;
     }
-    void setRepository(AccountRepository repository) {
-        this.repository_ = repository;
+    void setService(AccountService service) {
+        this.service_ = service;
+    }
+    void setHash(byte[] hash) {
+        this.hash_ = hash;
     }
     protected void load(
             UUID uuid,
@@ -89,8 +90,8 @@ public class Account {
         return this.uuid_ != null;
     }
     public boolean isLocked() { return false; }
-    public AccountRepository getRepository() {
-        return this.repository_;
+    public AccountService getService() {
+        return this.service_;
     }
     public Optional<UUID> getUuid() {
         return Optional.ofNullable(this.uuid_);
@@ -98,33 +99,25 @@ public class Account {
     public String getSalt() {
         return new String(this.salt_, StandardCharsets.UTF_8);
     }
+    byte[] getSaltBytes() {
+        return this.salt_;
+    }
     public String getHashedPassword() {
         return new String(this.hash_, StandardCharsets.UTF_8);
     }
 
     //METHODS
-    public boolean setPassword(String newPassword, String newPasswordConfirm) throws InvalidPasswordException {
-        int size = newPassword.length();
-        if (size < Math.max(this.minLength_,1) ) {
-            throw new PasswordTooShortException(this,newPassword,this.minLength_);
-        }
-        if (size > this.maxLength_) {
-            throw new PasswordTooLongException(this,newPassword,this.maxLength_);
-        }
-        BCrypt.HashData hash = BCrypt.withDefaults().hashRaw(6, this.salt_, newPassword.getBytes(StandardCharsets.UTF_8));
-        boolean confirm = BCrypt.verifyer().verify(newPasswordConfirm.getBytes(StandardCharsets.UTF_8),hash).verified;
-        if (!confirm) { return false; }
-        this.hash_ = BCrypt.Version.VERSION_2A.formatter.createHashMessage(hash);
-        return true;
+    public void setPassword(String newPassword, String newPasswordConfirm) throws InvalidPasswordException {
+        this.service_.setPassword(this, newPassword, newPasswordConfirm);
     }
     public boolean checkPassword(String toCheck) {
         return BCrypt.verifyer().verify(toCheck.getBytes(StandardCharsets.UTF_8),this.hash_).verified;
     }
     public void save() {
-        this.repository_.save(this);
+        this.service_.save(this);
     }
     public void delete() {
-        this.repository_.delete(this);
+        this.service_.delete(this);
     }
     public void lock() {}
 

@@ -112,8 +112,7 @@ public final class SQLiteAccountRepository implements AccountRepository {
                 row.salt(),
                 row.hashedPassword(),
                 row.joined(),
-                row.lastLogin(),
-                this
+                row.lastLogin()
         );
     }
 

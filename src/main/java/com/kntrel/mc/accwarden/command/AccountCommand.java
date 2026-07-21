@@ -3,9 +3,10 @@ package com.kntrel.mc.accwarden.command;
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.account.AccountService;
-import com.kntrel.mc.accwarden.platform.Platform;
+import com.kntrel.mc.accwarden.account.exception.PasswordConfirmationFailedException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
+import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.commvoker.bukkit.provided.annotation.Sender;
 import com.kntrel.mc.commvoker.bukkit.requirement.RequiresPermission;
 import com.kntrel.mc.commvoker.command.Command;
@@ -54,9 +55,8 @@ public class AccountCommand {
             @Word String confirmPassword
     ) throws FailedCommandException {
         Account acc = this.getAccount_(failTrigger, player);
-        boolean match = false;
         try {
-            match = acc.setPassword(password, confirmPassword);
+            acc.setPassword(password, confirmPassword);
         } catch (PasswordTooLongException ex) {
             failTrigger.fail(this.plugin_.getRunical()
                     .translate(player, "error.invalid_input.too_long")
@@ -69,9 +69,7 @@ public class AccountCommand {
                     .argument("min", ex.getMinLength())
                     .orDefault("")
                     .message());
-        }
-
-        if (!match) {
+        } catch (PasswordConfirmationFailedException ex) {
             failTrigger.fail(this.plugin_.getRunical()
                     .translate(player, "error.invalid_input.no_match")
                     .orDefault("")

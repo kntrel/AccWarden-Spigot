@@ -1,7 +1,6 @@
 package com.kntrel.mc.accwarden.persistence.domain;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.account.AccountRepository;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -14,10 +13,9 @@ public final class SQLiteAccount extends Account {
             String salt,
             String hashedPassword,
             LocalDateTime joined,
-            LocalDateTime lastLogged,
-            AccountRepository repository
+            LocalDateTime lastLogged
     ) {
-        super(name, repository);
+        super(name);
         this.load(uuid, salt, hashedPassword, joined, lastLogged);
     }
 

@@ -1,13 +1,18 @@
 package com.kntrel.mc.accwarden.account;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.kntrel.mc.accwarden.AccWarden;
-import com.kntrel.mc.accwarden.account.exception.LogginException;
 import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
+import com.kntrel.mc.accwarden.account.exception.LogginException;
+import com.kntrel.mc.accwarden.account.exception.PasswordConfirmationFailedException;
+import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
+import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
 import com.kntrel.mc.accwarden.persistence.domain.SQLiteAccountRepository;
 import com.kntrel.mc.accwarden.platform.Platform;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -120,9 +125,32 @@ public final class AccountService implements AccountRepository {
         return account;
     }
 
+    public void setPassword(Account account, String password, String confirmation) throws InvalidPasswordException {
+        int size = password.length();
+        if (size < Math.max(this.passwordMinLength_, 1)) {
+            throw new PasswordTooShortException(account, password, this.passwordMinLength_);
+        }
+        if (size > this.passwordMaxLength_) {
+            throw new PasswordTooLongException(account, password, this.passwordMaxLength_);
+        }
+
+        BCrypt.HashData hash = BCrypt.withDefaults().hashRaw(
+                6,
+                account.getSaltBytes(),
+                password.getBytes(StandardCharsets.UTF_8)
+        );
+        boolean matches = BCrypt.verifyer()
+                .verify(confirmation.getBytes(StandardCharsets.UTF_8), hash)
+                .verified;
+        if (!matches) {
+            throw new PasswordConfirmationFailedException(account, confirmation);
+        }
+
+        account.setHash(BCrypt.Version.VERSION_2A.formatter.createHashMessage(hash));
+    }
+
     public Account prepare(Account account) {
-        account.setRepository(this);
-        account.setSizes(this.passwordMinLength_, this.passwordMaxLength_);
+        account.setService(this);
         return account;
     }
 

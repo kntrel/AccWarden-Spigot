@@ -13,6 +13,7 @@ import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -87,12 +88,12 @@ public final class SessionService {
     }
 
     private CompletableFuture<SessionResult> startSession_(Player player, Platform platform) {
-        var account = this.accountService_.get(player, platform);
-        if (account.isPresent()) {
-            return this.startAuthentication_(player, platform, account.get(), AuthenticationViewState.regular());
+        Optional<Account> account = this.accountService_.get(player, platform);
+        if (account.isEmpty()) {
+            return this.startRegistration_(player, platform, RegistrationViewState.initial());
         }
 
-        return this.startRegistration_(player, platform, RegistrationViewState.initial());
+        return this.startAuthentication_(player, platform, account.get(), AuthenticationViewState.regular());
     }
 
     private CompletableFuture<SessionResult> startAuthentication_(
