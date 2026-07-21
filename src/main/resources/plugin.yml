@@ -1,7 +1,7 @@
 name: AccWarden
 version: '${project.version}'
 main: com.kntrel.mc.accwarden.AccWarden
-api-version: 26.1.2
+api-version: 26.2
 prefix: AccWarden
 softdepend: [ Geyser-Spigot, floodgate ]
 authors: [ kntrel ]

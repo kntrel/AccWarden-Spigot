@@ -11,7 +11,6 @@ import org.geysermc.floodgate.util.LinkedPlayer;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.geyser.api.event.EventRegistrar;
 import org.geysermc.geyser.api.event.bedrock.SessionLoginEvent;
-
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
