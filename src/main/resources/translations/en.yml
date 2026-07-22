@@ -81,6 +81,39 @@ authentication_form:
         too_short: "Your password cannot have less than {min} characters."
         too_long: "Your password cannot have more than {max} characters."
 
+account_form:
+  overview: |-
+    &6&l✦ Account ✦&r
+    &8━━━━━━━━━━━━━━━━&r
+    &7Name &8› &f{name}&r
+    &7Last login &8› &f{last_login}&r
+    &7Joined &8› &f{joined}&r
+    &7Platforms &8› &f[{platforms}]
+  action:
+    reset: "Reset account"
+    change_password: "Change password"
+  reset:
+    disclaimer: "Warning: Resetting deletes your account and leaves it unprotected. Anyone will be able to claim it by registering a new password."
+    action:
+      confirm: "Reset account"
+      cancel: "Cancel"
+  change_password:
+    disclosure: "Enter and confirm the new password for your account."
+    input:
+      password: "New password"
+      password_placeholder: "Enter a new password"
+      confirm_password: "Confirm password"
+      confirm_password_placeholder: "Repeat the new password"
+    action:
+      submit: "Change password"
+      back: "Back"
+    error:
+      password_required: "Password is required."
+      confirm_password_required: "Password confirmation is required."
+      no_match: "Passwords do not match."
+      too_short: "Your password must contain at least {min} characters."
+      too_long: "Your password cannot contain more than {max} characters."
+
 command:
   unexisting_account: "{player} doesn't have an account."
   reset:

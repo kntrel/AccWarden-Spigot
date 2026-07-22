@@ -62,6 +62,11 @@ public final class SessionService {
         this.sessionHolder_.dispose(player, platform);
     }
 
+    public Optional<Account> getLoggedInAccount(Player player) {
+        Platform platform = this.requireRouter_().getPlatform(player);
+        return this.sessionHolder_.get(player, platform).map(OpenSession::account);
+    }
+
     private OpenSession openSession_(Player player, Platform platform, Account account) throws LogginException {
         Account preparedAccount = this.accountService_.prepare(account);
         PlayerAccountLoginEvent event = new PlayerAccountLoginEvent(player, platform, preparedAccount);

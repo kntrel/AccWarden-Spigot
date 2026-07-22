@@ -1,6 +1,8 @@
 package com.kntrel.mc.accwarden;
 
 import com.kntrel.mc.accwarden.account.AccountService;
+import com.kntrel.mc.accwarden.command.AccountArgumentBindings;
+import com.kntrel.mc.accwarden.command.AccountCommand;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
 import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
@@ -12,6 +14,7 @@ import com.kntrel.mc.accwarden.platform.bedrock.JavaAndBedrockPlatformRouter;
 import com.kntrel.mc.accwarden.platform.java.JavaPlatform;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.accwarden.session.SessionService;
+import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -54,6 +57,10 @@ public final class AccWarden extends JavaPlugin {
         this.sessionService_ = new SessionService(this, this.accountService_, this.sessionHolder_);
         this.platformRouter_ = this.createPlatformRouter_();
         this.sessionService_.setRouter(this.platformRouter_);
+
+        Commvoker commvoker = new Commvoker(this);
+        AccountArgumentBindings.register(commvoker, this);
+        commvoker.register(new AccountCommand(this));
 
         this.getServer().getPluginManager().registerEvents(new AccWardenGate(this), this);
     }

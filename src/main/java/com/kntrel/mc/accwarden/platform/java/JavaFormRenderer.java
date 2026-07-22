@@ -295,13 +295,11 @@ public final class JavaFormRenderer implements FormRenderer {
         }
 
         private BaseComponent component_(String text) {
-            return new TextComponent(text);
+            return new TextComponent(TextComponent.fromLegacyText(text));
         }
 
         private BaseComponent component_(String text, ChatColor color) {
-            TextComponent component = new TextComponent(text);
-            component.setColor(color);
-            return component;
+            return new TextComponent(TextComponent.fromLegacyText(text, color));
         }
 
         private ChatColor color_(FormTextTone tone) {
