@@ -1,4 +1,4 @@
-package com.kntrel.mc.accwarden.authentication;
+package com.kntrel.mc.accwarden.gateway;
 
 import java.time.Clock;
 import java.time.Duration;

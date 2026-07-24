@@ -2,8 +2,16 @@ package com.kntrel.mc.accwarden.gateway.policy;
 
 import com.kntrel.mc.accwarden.gateway.Decision;
 
-public interface Policy<T, S extends BucketState<T>> {
+import java.time.Clock;
 
-    Decision consider(T subject, S state);
+public interface Policy<T, B extends Bucket<T>> {
+
+    /**
+     * Creates fresh runtime state configured for this policy.
+     * Ownership of the returned bucket belongs to the caller.
+     */
+    B newBucket(Clock clock);
+
+    Decision consider(T subject, B bucket);
 
 }
