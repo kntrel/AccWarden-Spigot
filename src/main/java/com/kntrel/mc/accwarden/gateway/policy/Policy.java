@@ -1,10 +1,9 @@
 package com.kntrel.mc.accwarden.gateway.policy;
 
-import com.kntrel.mc.accwarden.gateway.Decision;
-
 import java.time.Clock;
+import java.util.List;
 
-public interface Policy<T, B extends Bucket<T>> {
+public interface Policy<T, B extends Bucket<T>, F extends Finding> {
 
     /**
      * Creates fresh runtime state configured for this policy.
@@ -12,6 +11,10 @@ public interface Policy<T, B extends Bucket<T>> {
      */
     B newBucket(Clock clock);
 
-    Decision consider(T subject, B bucket);
+    /**
+     * Returns every condition currently affecting {@code subject}.
+     * The caller owns the final decision and may permit an operation with findings.
+     */
+    List<F> evaluate(T subject, B bucket);
 
 }

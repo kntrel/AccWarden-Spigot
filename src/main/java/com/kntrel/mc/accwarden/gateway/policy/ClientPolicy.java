@@ -1,14 +1,14 @@
 package com.kntrel.mc.accwarden.gateway.policy;
 
-import com.kntrel.mc.accwarden.gateway.Decision;
 import com.kntrel.mc.accwarden.gateway.NetworkKey;
-import com.kntrel.mc.accwarden.gateway.Penalty;
+
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
-public final class ClientPolicy implements Policy<NetworkKey, ClientBucket> {
+public final class ClientPolicy implements Policy<NetworkKey, ClientBucket, ClientFinding> {
 
     private final Duration window_;
     private final int maxRecords_, perClientLimit_, globalLimit_;
@@ -26,29 +26,35 @@ public final class ClientPolicy implements Policy<NetworkKey, ClientBucket> {
     }
 
     @Override
-    public Decision consider(NetworkKey client, ClientBucket bucket) {
+    public List<ClientFinding> evaluate(NetworkKey client, ClientBucket bucket) {
         Objects.requireNonNull(client, "client");
         Objects.requireNonNull(bucket, "bucket");
 
         Bucket.Snapshot snapshot = bucket.snapshot(client);
-        Instant throttledUntil = null;
+        List<ClientFinding> findings = new ArrayList<>(3);
         if (snapshot.isFull()) {
-            throttledUntil = snapshot.nextGlobalExpiration().orElseThrow();
+            findings.add(new ClientFinding.BucketCapacityReached(
+                    snapshot.globalCount(),
+                    snapshot.maxRecords(),
+                    snapshot.nextGlobalExpiration().orElseThrow()
+            ));
         }
         if (snapshot.subjectCount() >= this.perClientLimit_) {
-            throttledUntil = PolicySupport.later(
-                    throttledUntil,
+            findings.add(new ClientFinding.ClientLimitReached(
+                    snapshot.subjectCount(),
+                    this.perClientLimit_,
                     snapshot.nextSubjectExpiration().orElseThrow()
-            );
+            ));
         }
         if (snapshot.globalCount() >= this.globalLimit_) {
-            Instant globalExpiration = snapshot.nextGlobalExpiration().orElseThrow();
-            throttledUntil = PolicySupport.later(throttledUntil, globalExpiration);
+            findings.add(new ClientFinding.GlobalLimitReached(
+                    snapshot.globalCount(),
+                    this.globalLimit_,
+                    snapshot.nextGlobalExpiration().orElseThrow()
+            ));
         }
 
-        return throttledUntil == null
-                ? new Decision.Pass()
-                : new Decision.Throttled(new Penalty(client, throttledUntil));
+        return List.copyOf(findings);
     }
 
 }

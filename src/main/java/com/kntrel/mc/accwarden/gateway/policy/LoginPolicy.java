@@ -1,15 +1,14 @@
 package com.kntrel.mc.accwarden.gateway.policy;
 
-import com.kntrel.mc.accwarden.gateway.Decision;
 import com.kntrel.mc.accwarden.gateway.LoginRequest;
-import com.kntrel.mc.accwarden.gateway.Penalty;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
-public final class LoginPolicy implements Policy<LoginRequest, LoginBucket> {
+public final class LoginPolicy implements Policy<LoginRequest, LoginBucket, LoginFinding> {
 
     private final Duration window_;
     private final int maxRecords_, perLoginLimit_, failedLoginsPerClientLimit_;
@@ -35,29 +34,35 @@ public final class LoginPolicy implements Policy<LoginRequest, LoginBucket> {
     }
 
     @Override
-    public Decision consider(LoginRequest request, LoginBucket bucket) {
+    public List<LoginFinding> evaluate(LoginRequest request, LoginBucket bucket) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(bucket, "bucket");
 
         Bucket.Snapshot loginSnapshot = bucket.snapshot(request);
         Bucket.Snapshot failureSnapshot = bucket.failedLoginSnapshot(request.network());
-        Instant throttledUntil = null;
+        List<LoginFinding> findings = new ArrayList<>(3);
         if (loginSnapshot.isFull()) {
-            throttledUntil = loginSnapshot.nextGlobalExpiration().orElseThrow();
+            findings.add(new LoginFinding.BucketCapacityReached(
+                    loginSnapshot.globalCount(),
+                    loginSnapshot.maxRecords(),
+                    loginSnapshot.nextGlobalExpiration().orElseThrow()
+            ));
         }
         if (loginSnapshot.subjectCount() >= this.perLoginLimit_) {
-            throttledUntil = PolicySupport.later(
-                    throttledUntil,
+            findings.add(new LoginFinding.AccountClientLimitReached(
+                    loginSnapshot.subjectCount(),
+                    this.perLoginLimit_,
                     loginSnapshot.nextSubjectExpiration().orElseThrow()
-            );
+            ));
         }
         if (failureSnapshot.subjectCount() >= this.failedLoginsPerClientLimit_) {
-            Instant failureExpiration = failureSnapshot.nextSubjectExpiration().orElseThrow();
-            throttledUntil = PolicySupport.later(throttledUntil, failureExpiration);
+            findings.add(new LoginFinding.FailedLoginLimitReached(
+                    failureSnapshot.subjectCount(),
+                    this.failedLoginsPerClientLimit_,
+                    failureSnapshot.nextSubjectExpiration().orElseThrow()
+            ));
         }
 
-        return throttledUntil == null
-                ? new Decision.Pass()
-                : new Decision.Throttled(new Penalty(request.network(), throttledUntil));
+        return List.copyOf(findings);
     }
 }

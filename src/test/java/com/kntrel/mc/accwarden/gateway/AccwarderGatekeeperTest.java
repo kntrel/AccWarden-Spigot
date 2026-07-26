@@ -1,14 +1,19 @@
 package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.account.Account;
+import com.kntrel.mc.accwarden.gateway.policy.AccountFinding;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.ClientFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.Finding;
+import com.kntrel.mc.accwarden.gateway.policy.LoginFinding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -36,6 +41,11 @@ class AccwarderGatekeeperTest {
                 gatekeeper.considerConnection(CLIENT_A)
         );
         assertEquals(START.plus(WINDOW), individual.penalty().until());
+        ClientFinding.ClientLimitReached individualCause = assertInstanceOf(
+                ClientFinding.ClientLimitReached.class,
+                individual.findings().getFirst()
+        );
+        assertEquals(individualCause, individual.penalty().cause());
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
         Decision.Throttled global = assertInstanceOf(
@@ -43,6 +53,11 @@ class AccwarderGatekeeperTest {
                 gatekeeper.considerConnection(CLIENT_C)
         );
         assertEquals(START.plus(WINDOW), global.penalty().until());
+        ClientFinding.GlobalLimitReached globalCause = assertInstanceOf(
+                ClientFinding.GlobalLimitReached.class,
+                global.findings().getFirst()
+        );
+        assertEquals(globalCause, global.penalty().cause());
 
         clock.advance(WINDOW);
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
@@ -64,9 +79,22 @@ class AccwarderGatekeeperTest {
         );
         assertEquals(CLIENT_A, failed.penalty().client());
         assertEquals(START.plus(WINDOW), failed.penalty().until());
+        LoginFinding.FailedLoginLimitReached failedCause = assertInstanceOf(
+                LoginFinding.FailedLoginLimitReached.class,
+                failed.findings().getFirst()
+        );
+        assertEquals(failedCause, failed.penalty().cause());
 
-        assertInstanceOf(Decision.Throttled.class, gatekeeper.considerConnection(CLIENT_A));
-        assertInstanceOf(Decision.Throttled.class, gatekeeper.considerLogin(request));
+        Decision.Throttled blockedConnection = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerConnection(CLIENT_A)
+        );
+        Decision.Throttled blockedLogin = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerLogin(request)
+        );
+        assertEquals(failed.findings(), blockedConnection.findings());
+        assertEquals(failed.findings(), blockedLogin.findings());
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
 
         clock.advance(WINDOW);
@@ -89,6 +117,10 @@ class AccwarderGatekeeperTest {
         );
         assertEquals(CLIENT_B, multipleClients.penalty().client());
         assertEquals(START.plus(WINDOW), multipleClients.penalty().until());
+        assertInstanceOf(
+                AccountFinding.DistinctClientLimitReached.class,
+                multipleClients.findings().getFirst()
+        );
 
         assertInstanceOf(
                 Decision.Pass.class,
@@ -122,6 +154,36 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
+    void decisionKeepsAllCausesAndUsesTheLatestRetryTime() {
+        MutableClock clock = new MutableClock(START);
+        AccwarderGatekeeper gatekeeper = gatekeeper_(clock, 2, 3, 10, 10, 10);
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
+        clock.advance(Duration.ofSeconds(2));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
+
+        Decision.Throttled decision = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerConnection(CLIENT_B)
+        );
+        ClientFinding.ClientLimitReached clientLimit = cause_(
+                decision.findings(),
+                ClientFinding.ClientLimitReached.class
+        );
+        ClientFinding.GlobalLimitReached globalLimit = cause_(
+                decision.findings(),
+                ClientFinding.GlobalLimitReached.class
+        );
+
+        assertEquals(2, decision.findings().size());
+        assertEquals(START.plusSeconds(12), clientLimit.retryAt());
+        assertEquals(START.plusSeconds(10), globalLimit.retryAt());
+        assertEquals(clientLimit.retryAt(), decision.penalty().until());
+        assertEquals(clientLimit, decision.penalty().cause());
+    }
+
+    @Test
     void failedLoginDoesNotOverflowAFullLoginBucket() {
         MutableClock clock = new MutableClock(START);
         AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 10, 10);
@@ -136,7 +198,34 @@ class AccwarderGatekeeperTest {
         LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
-        assertInstanceOf(Decision.Throttled.class, gatekeeper.recordFailedLogin(request));
+        Decision.Throttled decision = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.recordFailedLogin(request)
+        );
+        assertInstanceOf(
+                LoginFinding.BucketCapacityReached.class,
+                decision.findings().getFirst()
+        );
+    }
+
+    @Test
+    void passDecisionCanRetainFindings() {
+        Finding finding = () -> START.plus(WINDOW);
+
+        Decision.Pass decision = new Decision.Pass(List.of(finding));
+
+        assertEquals(List.of(finding), decision.findings());
+    }
+
+    private static <F extends Finding> F cause_(
+            List<Finding> findings,
+            Class<F> type
+    ) {
+        return findings.stream()
+                .filter(type::isInstance)
+                .map(type::cast)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static AccwarderGatekeeper gatekeeper_(

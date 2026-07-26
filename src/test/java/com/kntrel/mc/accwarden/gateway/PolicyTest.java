@@ -1,23 +1,28 @@
 package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.account.Account;
+import com.kntrel.mc.accwarden.gateway.policy.AccountFinding;
 import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
+import com.kntrel.mc.accwarden.gateway.policy.ClientFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.LoginBucket;
+import com.kntrel.mc.accwarden.gateway.policy.LoginFinding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PolicyTest {
 
@@ -36,9 +41,15 @@ class PolicyTest {
         bucket.record(aliceFromA);
         bucket.record(aliceFromA);
 
-        assertInstanceOf(Decision.Throttled.class, policy.consider(aliceFromA, bucket));
-        assertInstanceOf(Decision.Pass.class, policy.consider(request_("alice", CLIENT_B), bucket));
-        assertInstanceOf(Decision.Pass.class, policy.consider(request_("bob", CLIENT_A), bucket));
+        LoginFinding.AccountClientLimitReached finding = assertInstanceOf(
+                LoginFinding.AccountClientLimitReached.class,
+                policy.evaluate(aliceFromA, bucket).getFirst()
+        );
+
+        assertEquals(2, finding.attemptCount());
+        assertEquals(2, finding.limit());
+        assertTrue(policy.evaluate(request_("alice", CLIENT_B), bucket).isEmpty());
+        assertTrue(policy.evaluate(request_("bob", CLIENT_A), bucket).isEmpty());
         assertEquals(2, bucket.snapshot(aliceFromA).globalCount());
     }
 
@@ -51,14 +62,14 @@ class PolicyTest {
         bucket.recordFailedLogin(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_A));
 
-        assertInstanceOf(
-                Decision.Throttled.class,
-                policy.consider(request_("charlie", CLIENT_A), bucket)
+        LoginFinding.FailedLoginLimitReached finding = assertInstanceOf(
+                LoginFinding.FailedLoginLimitReached.class,
+                policy.evaluate(request_("charlie", CLIENT_A), bucket).getFirst()
         );
-        assertInstanceOf(
-                Decision.Pass.class,
-                policy.consider(request_("charlie", CLIENT_B), bucket)
-        );
+
+        assertEquals(2, finding.failureCount());
+        assertEquals(2, finding.limit());
+        assertTrue(policy.evaluate(request_("charlie", CLIENT_B), bucket).isEmpty());
     }
 
     @Test
@@ -69,12 +80,14 @@ class PolicyTest {
         bucket.record(CLIENT_A);
         bucket.record(CLIENT_B);
 
-        Decision.Throttled decision = assertInstanceOf(
-                Decision.Throttled.class,
-                policy.consider(client_(3), bucket)
+        ClientFinding.BucketCapacityReached finding = assertInstanceOf(
+                ClientFinding.BucketCapacityReached.class,
+                policy.evaluate(client_(3), bucket).getFirst()
         );
 
-        assertEquals(START.plus(WINDOW), decision.penalty().until());
+        assertEquals(2, finding.recordCount());
+        assertEquals(2, finding.capacity());
+        assertEquals(START.plus(WINDOW), finding.retryAt());
     }
 
     @Test
@@ -85,13 +98,13 @@ class PolicyTest {
         bucket.record(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_B));
 
-        Decision.Throttled decision = assertInstanceOf(
-                Decision.Throttled.class,
-                policy.consider(request_("charlie", client_(3)), bucket)
+        LoginFinding.BucketCapacityReached finding = assertInstanceOf(
+                LoginFinding.BucketCapacityReached.class,
+                policy.evaluate(request_("charlie", client_(3)), bucket).getFirst()
         );
 
         assertEquals(2, bucket.size());
-        assertEquals(START.plus(WINDOW), decision.penalty().until());
+        assertEquals(START.plus(WINDOW), finding.retryAt());
     }
 
     @Test
@@ -101,12 +114,37 @@ class PolicyTest {
         AccountBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
 
-        Decision.Throttled decision = assertInstanceOf(
-                Decision.Throttled.class,
-                policy.consider(request_("bob", CLIENT_B), bucket)
+        AccountFinding.BucketCapacityReached finding = assertInstanceOf(
+                AccountFinding.BucketCapacityReached.class,
+                policy.evaluate(request_("bob", CLIENT_B), bucket).getFirst()
         );
 
-        assertEquals(START.plus(WINDOW), decision.penalty().until());
+        assertEquals(START.plus(WINDOW), finding.retryAt());
+    }
+
+    @Test
+    void clientPolicyReportsEverySimultaneousFindingWithItsOwnRetryTime() {
+        MutableClock clock = new MutableClock(START);
+        ClientPolicy policy = new ClientPolicy(WINDOW, 10, 2, 3);
+        ClientBucket bucket = policy.newBucket(clock);
+        bucket.record(CLIENT_A);
+        clock.advance(Duration.ofSeconds(2));
+        bucket.record(CLIENT_B);
+        bucket.record(CLIENT_B);
+
+        List<ClientFinding> findings = policy.evaluate(CLIENT_B, bucket);
+        ClientFinding.ClientLimitReached clientLimit = finding_(
+                findings,
+                ClientFinding.ClientLimitReached.class
+        );
+        ClientFinding.GlobalLimitReached globalLimit = finding_(
+                findings,
+                ClientFinding.GlobalLimitReached.class
+        );
+
+        assertEquals(2, findings.size());
+        assertEquals(START.plusSeconds(12), clientLimit.retryAt());
+        assertEquals(START.plusSeconds(10), globalLimit.retryAt());
     }
 
     @Test
@@ -122,6 +160,7 @@ class PolicyTest {
         assertEquals(2, first.maxRecords());
         assertEquals(1, first.size());
         assertEquals(0, second.size());
+        assertTrue(policy.evaluate(CLIENT_A, second).isEmpty());
     }
 
     @Test
@@ -131,7 +170,15 @@ class PolicyTest {
         LoginBucket bucket = policy.newBucket(clock);
         LoginRequest request = new LoginRequest(new UnidentifiedAccount("alice"), CLIENT_A);
 
-        assertThrows(IllegalArgumentException.class, () -> policy.consider(request, bucket));
+        assertThrows(IllegalArgumentException.class, () -> policy.evaluate(request, bucket));
+    }
+
+    private static <F, S extends F> S finding_(List<F> findings, Class<S> type) {
+        return findings.stream()
+                .filter(type::isInstance)
+                .map(type::cast)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static LoginRequest request_(String account, NetworkKey client) {

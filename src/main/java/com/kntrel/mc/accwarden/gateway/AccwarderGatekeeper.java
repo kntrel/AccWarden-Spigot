@@ -4,13 +4,16 @@ import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
 import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.Finding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginBucket;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
-
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,9 +32,9 @@ public final class AccwarderGatekeeper {
     private final ClientBucket clientBucket_;
     private final LoginBucket loginBucket_;
     private final Clock clock_;
-    private final Map<NetworkKey, Penalty> penaltiesByClient_ = new HashMap<>();
-    private final PriorityQueue<Penalty> penaltiesByExpiration_ = new PriorityQueue<>(
-            Comparator.comparing(Penalty::until)
+    private final Map<NetworkKey, Decision.Throttled> throttlesByClient_ = new HashMap<>();
+    private final PriorityQueue<Decision.Throttled> throttlesByExpiration_ = new PriorityQueue<>(
+            Comparator.comparing(throttled -> throttled.penalty().until())
     );
 
     public AccwarderGatekeeper(
@@ -62,12 +65,15 @@ public final class AccwarderGatekeeper {
      */
     public synchronized Decision considerConnection(NetworkKey client) {
         Objects.requireNonNull(client, "client");
-        Optional<Penalty> activePenalty = this.activePenalty_(client);
-        if (activePenalty.isPresent()) {
-            return new Decision.Throttled(activePenalty.orElseThrow());
+        Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(client);
+        if (activeThrottle.isPresent()) {
+            return activeThrottle.orElseThrow();
         }
 
-        Decision decision = this.clientPolicy_.consider(client, this.clientBucket_);
+        Decision decision = decide_(
+                client,
+                this.clientPolicy_.evaluate(client, this.clientBucket_)
+        );
         if (decision instanceof Decision.Pass) {
             this.clientBucket_.record(client);
         }
@@ -79,14 +85,17 @@ public final class AccwarderGatekeeper {
      */
     public synchronized Decision considerLogin(LoginRequest request) {
         Objects.requireNonNull(request, "request");
-        Optional<Penalty> activePenalty = this.activePenalty_(request.network());
-        if (activePenalty.isPresent()) {
-            return new Decision.Throttled(activePenalty.orElseThrow());
+        Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(request.network());
+        if (activeThrottle.isPresent()) {
+            return activeThrottle.orElseThrow();
         }
 
-        Decision decision = merge_(
-                this.loginPolicy_.consider(request, this.loginBucket_),
-                this.accountPolicy_.consider(request, this.accountBucket_)
+        List<Finding> findings = new ArrayList<>();
+        findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
+        findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
+        Decision decision = decide_(
+                request.network(),
+                findings
         );
         if (decision instanceof Decision.Pass) {
             this.loginBucket_.record(request);
@@ -106,21 +115,23 @@ public final class AccwarderGatekeeper {
             this.loginBucket_.recordFailedLogin(request);
         }
 
-        Decision decision = merge_(
-                this.activePenalty_(request.network())
-                        .<Decision>map(Decision.Throttled::new)
-                        .orElseGet(Decision.Pass::new),
-                this.loginPolicy_.consider(request, this.loginBucket_),
-                this.accountPolicy_.consider(request, this.accountBucket_)
+        List<Finding> findings = new ArrayList<>();
+        this.activeThrottle_(request.network())
+                .ifPresent(throttled -> findings.addAll(throttled.findings()));
+        findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
+        findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
+        Decision decision = decide_(
+                request.network(),
+                findings
         );
         this.remember_(decision);
         return decision;
     }
 
-    private Optional<Penalty> activePenalty_(NetworkKey client) {
-        this.discardExpiredPenalties_();
-        Penalty penalty = this.penaltiesByClient_.get(client);
-        return Optional.ofNullable(penalty);
+    private Optional<Decision.Throttled> activeThrottle_(NetworkKey client) {
+        this.discardExpiredThrottles_();
+        Decision.Throttled throttle = this.throttlesByClient_.get(client);
+        return Optional.ofNullable(throttle);
     }
 
     private void remember_(Decision decision) {
@@ -128,36 +139,45 @@ public final class AccwarderGatekeeper {
             return;
         }
 
-        Penalty candidate = throttled.penalty();
-        Penalty current = this.penaltiesByClient_.get(candidate.client());
-        if (current == null || candidate.until().isAfter(current.until())) {
-            this.penaltiesByClient_.put(candidate.client(), candidate);
-            this.penaltiesByExpiration_.add(candidate);
+        NetworkKey client = throttled.penalty().client();
+        Decision.Throttled current = this.throttlesByClient_.get(client);
+        if (!throttled.equals(current)) {
+            this.throttlesByClient_.put(client, throttled);
+            this.throttlesByExpiration_.add(throttled);
         }
     }
 
-    private void discardExpiredPenalties_() {
+    private void discardExpiredThrottles_() {
         Instant now = this.clock_.instant();
-        while (!this.penaltiesByExpiration_.isEmpty()
-                && !this.penaltiesByExpiration_.peek().until().isAfter(now)) {
-            Penalty expired = this.penaltiesByExpiration_.remove();
-            this.penaltiesByClient_.computeIfPresent(
-                    expired.client(),
+        while (!this.throttlesByExpiration_.isEmpty()
+                && !this.throttlesByExpiration_.peek().penalty().until().isAfter(now)) {
+            Decision.Throttled expired = this.throttlesByExpiration_.remove();
+            this.throttlesByClient_.computeIfPresent(
+                    expired.penalty().client(),
                     (client, current) -> current.equals(expired) ? null : current
             );
         }
     }
 
-    private static Decision merge_(Decision... decisions) {
-        Penalty strictest = null;
-        for (Decision decision : decisions) {
-            Objects.requireNonNull(decision, "decision");
-            if (decision instanceof Decision.Throttled throttled
-                    && (strictest == null || throttled.penalty().until().isAfter(strictest.until()))) {
-                strictest = throttled.penalty();
-            }
+    private static Decision decide_(
+            NetworkKey client,
+            Collection<? extends Finding> findings
+    ) {
+        Objects.requireNonNull(client, "client");
+        List<Finding> collectedFindings = List.copyOf(
+                Objects.requireNonNull(findings, "findings")
+        );
+        if (collectedFindings.isEmpty()) {
+            return new Decision.Pass();
         }
-        return strictest == null ? new Decision.Pass() : new Decision.Throttled(strictest);
+
+        Finding cause = collectedFindings.stream()
+                .max(Comparator.comparing(Finding::retryAt))
+                .orElseThrow();
+        return new Decision.Throttled(
+                new Penalty(client, cause.retryAt(), cause),
+                collectedFindings
+        );
     }
 
 }

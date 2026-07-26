@@ -23,8 +23,16 @@ final class PolicySupport {
         return limit;
     }
 
-    static Instant later(Instant first, Instant second) {
-        Objects.requireNonNull(second, "second");
-        return first == null || second.isAfter(first) ? second : first;
+    static void requireReachedLimit(int count, int limit, String countName, String limitName) {
+        requirePositiveLimit(limit, limitName);
+        if (count < limit) {
+            throw new IllegalArgumentException(
+                    countName + " must be at least " + limitName + "."
+            );
+        }
+    }
+
+    static Instant requireRetryAt(Instant retryAt) {
+        return Objects.requireNonNull(retryAt, "retryAt");
     }
 }

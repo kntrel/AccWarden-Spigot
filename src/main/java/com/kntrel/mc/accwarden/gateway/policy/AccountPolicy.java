@@ -1,15 +1,14 @@
 package com.kntrel.mc.accwarden.gateway.policy;
 
-import com.kntrel.mc.accwarden.gateway.Decision;
 import com.kntrel.mc.accwarden.gateway.LoginRequest;
-import com.kntrel.mc.accwarden.gateway.Penalty;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
-public final class AccountPolicy implements Policy<LoginRequest, AccountBucket> {
+public final class AccountPolicy implements Policy<LoginRequest, AccountBucket, AccountFinding> {
 
     private final Duration window_;
     private final int maxRecords_, distinctClientLimit_;
@@ -29,24 +28,31 @@ public final class AccountPolicy implements Policy<LoginRequest, AccountBucket> 
     }
 
     @Override
-    public Decision consider(LoginRequest request, AccountBucket bucket) {
+    public List<AccountFinding> evaluate(LoginRequest request, AccountBucket bucket) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(bucket, "bucket");
 
         Bucket.Snapshot bucketSnapshot = bucket.snapshot(request);
+        List<AccountFinding> findings = new ArrayList<>(2);
         if (bucketSnapshot.isFull()) {
-            Instant throttledUntil = bucketSnapshot.nextGlobalExpiration().orElseThrow();
-            return new Decision.Throttled(new Penalty(request.network(), throttledUntil));
+            findings.add(new AccountFinding.BucketCapacityReached(
+                    bucketSnapshot.globalCount(),
+                    bucketSnapshot.maxRecords(),
+                    bucketSnapshot.nextGlobalExpiration().orElseThrow()
+            ));
         }
 
         AccountBucket.ClientSnapshot snapshot = bucket.clientSnapshot(request);
         boolean newClientIsOverLimit = !snapshot.containsClient()
                 && snapshot.distinctClientCount() >= this.distinctClientLimit_;
-        if (!newClientIsOverLimit) {
-            return new Decision.Pass();
+        if (newClientIsOverLimit) {
+            findings.add(new AccountFinding.DistinctClientLimitReached(
+                    snapshot.distinctClientCount(),
+                    this.distinctClientLimit_,
+                    snapshot.permitsNewClientAt().orElseThrow()
+            ));
         }
 
-        Instant throttledUntil = snapshot.permitsNewClientAt().orElseThrow();
-        return new Decision.Throttled(new Penalty(request.network(), throttledUntil));
+        return List.copyOf(findings);
     }
 }
