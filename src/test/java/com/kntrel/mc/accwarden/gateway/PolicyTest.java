@@ -41,12 +41,13 @@ class PolicyTest {
         bucket.record(aliceFromA);
         bucket.record(aliceFromA);
 
-        LoginFinding.AccountClientLimitReached finding = assertInstanceOf(
-                LoginFinding.AccountClientLimitReached.class,
+        LoginFinding finding = assertInstanceOf(
+                LoginFinding.class,
                 policy.evaluate(aliceFromA, bucket).getFirst()
         );
 
-        assertEquals(2, finding.attemptCount());
+        assertEquals(LoginFinding.Threshold.ACCOUNT_CLIENT_ATTEMPTS, finding.threshold());
+        assertEquals(2, finding.count());
         assertEquals(2, finding.limit());
         assertTrue(policy.evaluate(request_("alice", CLIENT_B), bucket).isEmpty());
         assertTrue(policy.evaluate(request_("bob", CLIENT_A), bucket).isEmpty());
@@ -62,12 +63,13 @@ class PolicyTest {
         bucket.recordFailedLogin(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_A));
 
-        LoginFinding.FailedLoginLimitReached finding = assertInstanceOf(
-                LoginFinding.FailedLoginLimitReached.class,
+        LoginFinding finding = assertInstanceOf(
+                LoginFinding.class,
                 policy.evaluate(request_("charlie", CLIENT_A), bucket).getFirst()
         );
 
-        assertEquals(2, finding.failureCount());
+        assertEquals(LoginFinding.Threshold.CLIENT_FAILED_LOGINS, finding.threshold());
+        assertEquals(2, finding.count());
         assertEquals(2, finding.limit());
         assertTrue(policy.evaluate(request_("charlie", CLIENT_B), bucket).isEmpty());
     }
@@ -80,13 +82,14 @@ class PolicyTest {
         bucket.record(CLIENT_A);
         bucket.record(CLIENT_B);
 
-        ClientFinding.BucketCapacityReached finding = assertInstanceOf(
-                ClientFinding.BucketCapacityReached.class,
+        ClientFinding finding = assertInstanceOf(
+                ClientFinding.class,
                 policy.evaluate(client_(3), bucket).getFirst()
         );
 
-        assertEquals(2, finding.recordCount());
-        assertEquals(2, finding.capacity());
+        assertEquals(ClientFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
+        assertEquals(2, finding.count());
+        assertEquals(2, finding.limit());
         assertEquals(START.plus(WINDOW), finding.retryAt());
     }
 
@@ -98,11 +101,12 @@ class PolicyTest {
         bucket.record(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_B));
 
-        LoginFinding.BucketCapacityReached finding = assertInstanceOf(
-                LoginFinding.BucketCapacityReached.class,
+        LoginFinding finding = assertInstanceOf(
+                LoginFinding.class,
                 policy.evaluate(request_("charlie", client_(3)), bucket).getFirst()
         );
 
+        assertEquals(LoginFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
         assertEquals(2, bucket.size());
         assertEquals(START.plus(WINDOW), finding.retryAt());
     }
@@ -114,11 +118,12 @@ class PolicyTest {
         AccountBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
 
-        AccountFinding.BucketCapacityReached finding = assertInstanceOf(
-                AccountFinding.BucketCapacityReached.class,
+        AccountFinding finding = assertInstanceOf(
+                AccountFinding.class,
                 policy.evaluate(request_("bob", CLIENT_B), bucket).getFirst()
         );
 
+        assertEquals(AccountFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
         assertEquals(START.plus(WINDOW), finding.retryAt());
     }
 
@@ -133,13 +138,13 @@ class PolicyTest {
         bucket.record(CLIENT_B);
 
         List<ClientFinding> findings = policy.evaluate(CLIENT_B, bucket);
-        ClientFinding.ClientLimitReached clientLimit = finding_(
+        ClientFinding clientLimit = finding_(
                 findings,
-                ClientFinding.ClientLimitReached.class
+                ClientFinding.Threshold.CLIENT_CONNECTIONS
         );
-        ClientFinding.GlobalLimitReached globalLimit = finding_(
+        ClientFinding globalLimit = finding_(
                 findings,
-                ClientFinding.GlobalLimitReached.class
+                ClientFinding.Threshold.GLOBAL_CONNECTIONS
         );
 
         assertEquals(2, findings.size());
@@ -173,10 +178,12 @@ class PolicyTest {
         assertThrows(IllegalArgumentException.class, () -> policy.evaluate(request, bucket));
     }
 
-    private static <F, S extends F> S finding_(List<F> findings, Class<S> type) {
+    private static ClientFinding finding_(
+            List<ClientFinding> findings,
+            ClientFinding.Threshold threshold
+    ) {
         return findings.stream()
-                .filter(type::isInstance)
-                .map(type::cast)
+                .filter(finding -> finding.threshold() == threshold)
                 .findFirst()
                 .orElseThrow();
     }

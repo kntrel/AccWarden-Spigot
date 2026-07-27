@@ -42,24 +42,27 @@ public final class LoginPolicy implements Policy<LoginRequest, LoginBucket, Logi
         Bucket.Snapshot failureSnapshot = bucket.failedLoginSnapshot(request.network());
         List<LoginFinding> findings = new ArrayList<>(3);
         if (loginSnapshot.isFull()) {
-            findings.add(new LoginFinding.BucketCapacityReached(
+            findings.add(new LoginFinding(
                     loginSnapshot.globalCount(),
                     loginSnapshot.maxRecords(),
-                    loginSnapshot.nextGlobalExpiration().orElseThrow()
+                    loginSnapshot.nextGlobalExpiration().orElseThrow(),
+                    LoginFinding.Threshold.BUCKET_CAPACITY
             ));
         }
         if (loginSnapshot.subjectCount() >= this.perLoginLimit_) {
-            findings.add(new LoginFinding.AccountClientLimitReached(
+            findings.add(new LoginFinding(
                     loginSnapshot.subjectCount(),
                     this.perLoginLimit_,
-                    loginSnapshot.nextSubjectExpiration().orElseThrow()
+                    loginSnapshot.nextSubjectExpiration().orElseThrow(),
+                    LoginFinding.Threshold.ACCOUNT_CLIENT_ATTEMPTS
             ));
         }
         if (failureSnapshot.subjectCount() >= this.failedLoginsPerClientLimit_) {
-            findings.add(new LoginFinding.FailedLoginLimitReached(
+            findings.add(new LoginFinding(
                     failureSnapshot.subjectCount(),
                     this.failedLoginsPerClientLimit_,
-                    failureSnapshot.nextSubjectExpiration().orElseThrow()
+                    failureSnapshot.nextSubjectExpiration().orElseThrow(),
+                    LoginFinding.Threshold.CLIENT_FAILED_LOGINS
             ));
         }
 

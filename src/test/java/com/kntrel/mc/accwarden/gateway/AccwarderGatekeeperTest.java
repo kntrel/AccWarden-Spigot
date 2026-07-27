@@ -41,10 +41,11 @@ class AccwarderGatekeeperTest {
                 gatekeeper.considerConnection(CLIENT_A)
         );
         assertEquals(START.plus(WINDOW), individual.penalty().until());
-        ClientFinding.ClientLimitReached individualCause = assertInstanceOf(
-                ClientFinding.ClientLimitReached.class,
+        ClientFinding individualCause = assertInstanceOf(
+                ClientFinding.class,
                 individual.findings().getFirst()
         );
+        assertEquals(ClientFinding.Threshold.CLIENT_CONNECTIONS, individualCause.threshold());
         assertEquals(individualCause, individual.penalty().cause());
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
@@ -53,10 +54,11 @@ class AccwarderGatekeeperTest {
                 gatekeeper.considerConnection(CLIENT_C)
         );
         assertEquals(START.plus(WINDOW), global.penalty().until());
-        ClientFinding.GlobalLimitReached globalCause = assertInstanceOf(
-                ClientFinding.GlobalLimitReached.class,
+        ClientFinding globalCause = assertInstanceOf(
+                ClientFinding.class,
                 global.findings().getFirst()
         );
+        assertEquals(ClientFinding.Threshold.GLOBAL_CONNECTIONS, globalCause.threshold());
         assertEquals(globalCause, global.penalty().cause());
 
         clock.advance(WINDOW);
@@ -79,10 +81,11 @@ class AccwarderGatekeeperTest {
         );
         assertEquals(CLIENT_A, failed.penalty().client());
         assertEquals(START.plus(WINDOW), failed.penalty().until());
-        LoginFinding.FailedLoginLimitReached failedCause = assertInstanceOf(
-                LoginFinding.FailedLoginLimitReached.class,
+        LoginFinding failedCause = assertInstanceOf(
+                LoginFinding.class,
                 failed.findings().getFirst()
         );
+        assertEquals(LoginFinding.Threshold.CLIENT_FAILED_LOGINS, failedCause.threshold());
         assertEquals(failedCause, failed.penalty().cause());
 
         Decision.Throttled blockedConnection = assertInstanceOf(
@@ -117,10 +120,11 @@ class AccwarderGatekeeperTest {
         );
         assertEquals(CLIENT_B, multipleClients.penalty().client());
         assertEquals(START.plus(WINDOW), multipleClients.penalty().until());
-        assertInstanceOf(
-                AccountFinding.DistinctClientLimitReached.class,
+        AccountFinding finding = assertInstanceOf(
+                AccountFinding.class,
                 multipleClients.findings().getFirst()
         );
+        assertEquals(AccountFinding.Threshold.DISTINCT_CLIENTS, finding.threshold());
 
         assertInstanceOf(
                 Decision.Pass.class,
@@ -154,7 +158,7 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
-    void decisionKeepsAllCausesAndUsesTheLatestRetryTime() {
+    void decisionKeepsAllFindingsAndUsesTheLatestRetryTime() {
         MutableClock clock = new MutableClock(START);
         AccwarderGatekeeper gatekeeper = gatekeeper_(clock, 2, 3, 10, 10, 10);
 
@@ -167,13 +171,13 @@ class AccwarderGatekeeperTest {
                 Decision.Throttled.class,
                 gatekeeper.considerConnection(CLIENT_B)
         );
-        ClientFinding.ClientLimitReached clientLimit = cause_(
+        ClientFinding clientLimit = clientFinding_(
                 decision.findings(),
-                ClientFinding.ClientLimitReached.class
+                ClientFinding.Threshold.CLIENT_CONNECTIONS
         );
-        ClientFinding.GlobalLimitReached globalLimit = cause_(
+        ClientFinding globalLimit = clientFinding_(
                 decision.findings(),
-                ClientFinding.GlobalLimitReached.class
+                ClientFinding.Threshold.GLOBAL_CONNECTIONS
         );
 
         assertEquals(2, decision.findings().size());
@@ -202,10 +206,11 @@ class AccwarderGatekeeperTest {
                 Decision.Throttled.class,
                 gatekeeper.recordFailedLogin(request)
         );
-        assertInstanceOf(
-                LoginFinding.BucketCapacityReached.class,
+        LoginFinding finding = assertInstanceOf(
+                LoginFinding.class,
                 decision.findings().getFirst()
         );
+        assertEquals(LoginFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
     }
 
     @Test
@@ -217,13 +222,14 @@ class AccwarderGatekeeperTest {
         assertEquals(List.of(finding), decision.findings());
     }
 
-    private static <F extends Finding> F cause_(
+    private static ClientFinding clientFinding_(
             List<Finding> findings,
-            Class<F> type
+            ClientFinding.Threshold threshold
     ) {
         return findings.stream()
-                .filter(type::isInstance)
-                .map(type::cast)
+                .filter(ClientFinding.class::isInstance)
+                .map(ClientFinding.class::cast)
+                .filter(finding -> finding.threshold() == threshold)
                 .findFirst()
                 .orElseThrow();
     }

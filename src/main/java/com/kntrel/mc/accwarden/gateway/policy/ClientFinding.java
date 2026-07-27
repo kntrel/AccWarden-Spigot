@@ -1,40 +1,24 @@
 package com.kntrel.mc.accwarden.gateway.policy;
 
 import java.time.Instant;
+import java.util.Objects;
 
-public sealed interface ClientFinding extends Finding {
+public record ClientFinding(
+        int count,
+        int limit,
+        Instant retryAt,
+        Threshold threshold
+) implements Finding {
 
-    record BucketCapacityReached(int recordCount, int capacity, Instant retryAt) implements ClientFinding {
-
-        public BucketCapacityReached {
-            PolicySupport.requireReachedLimit(recordCount, capacity, "recordCount", "capacity");
-            PolicySupport.requireRetryAt(retryAt);
-        }
+    public ClientFinding {
+        PolicySupport.requireReachedLimit(count, limit, "count", "limit");
+        PolicySupport.requireRetryAt(retryAt);
+        Objects.requireNonNull(threshold, "threshold");
     }
 
-    record ClientLimitReached(int connectionCount, int limit, Instant retryAt) implements ClientFinding {
-
-        public ClientLimitReached {
-            PolicySupport.requireReachedLimit(
-                    connectionCount,
-                    limit,
-                    "connectionCount",
-                    "limit"
-            );
-            PolicySupport.requireRetryAt(retryAt);
-        }
-    }
-
-    record GlobalLimitReached(int connectionCount, int limit, Instant retryAt) implements ClientFinding {
-
-        public GlobalLimitReached {
-            PolicySupport.requireReachedLimit(
-                    connectionCount,
-                    limit,
-                    "connectionCount",
-                    "limit"
-            );
-            PolicySupport.requireRetryAt(retryAt);
-        }
+    public enum Threshold {
+        BUCKET_CAPACITY,
+        CLIENT_CONNECTIONS,
+        GLOBAL_CONNECTIONS
     }
 }

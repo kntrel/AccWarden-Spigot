@@ -35,10 +35,11 @@ public final class AccountPolicy implements Policy<LoginRequest, AccountBucket, 
         Bucket.Snapshot bucketSnapshot = bucket.snapshot(request);
         List<AccountFinding> findings = new ArrayList<>(2);
         if (bucketSnapshot.isFull()) {
-            findings.add(new AccountFinding.BucketCapacityReached(
+            findings.add(new AccountFinding(
                     bucketSnapshot.globalCount(),
                     bucketSnapshot.maxRecords(),
-                    bucketSnapshot.nextGlobalExpiration().orElseThrow()
+                    bucketSnapshot.nextGlobalExpiration().orElseThrow(),
+                    AccountFinding.Threshold.BUCKET_CAPACITY
             ));
         }
 
@@ -46,10 +47,11 @@ public final class AccountPolicy implements Policy<LoginRequest, AccountBucket, 
         boolean newClientIsOverLimit = !snapshot.containsClient()
                 && snapshot.distinctClientCount() >= this.distinctClientLimit_;
         if (newClientIsOverLimit) {
-            findings.add(new AccountFinding.DistinctClientLimitReached(
+            findings.add(new AccountFinding(
                     snapshot.distinctClientCount(),
                     this.distinctClientLimit_,
-                    snapshot.permitsNewClientAt().orElseThrow()
+                    snapshot.permitsNewClientAt().orElseThrow(),
+                    AccountFinding.Threshold.DISTINCT_CLIENTS
             ));
         }
 
