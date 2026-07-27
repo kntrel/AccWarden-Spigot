@@ -2,6 +2,8 @@ package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
+import com.kntrel.mc.accwarden.gateway.policy.Bucket;
+import com.kntrel.mc.accwarden.gateway.policy.BucketCapacityFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.Finding;
@@ -70,10 +72,10 @@ public final class AccwarderGatekeeper {
             return activeThrottle.orElseThrow();
         }
 
-        Decision decision = decide_(
-                client,
-                this.clientPolicy_.evaluate(client, this.clientBucket_)
-        );
+        List<Finding> findings = new ArrayList<>();
+        addCapacityFinding_(findings, this.clientBucket_.snapshot(client));
+        findings.addAll(this.clientPolicy_.evaluate(client, this.clientBucket_));
+        Decision decision = decide_(client, findings);
         if (decision instanceof Decision.Pass) {
             this.clientBucket_.record(client);
         }
@@ -91,6 +93,8 @@ public final class AccwarderGatekeeper {
         }
 
         List<Finding> findings = new ArrayList<>();
+        addCapacityFinding_(findings, this.loginBucket_.snapshot(request));
+        addCapacityFinding_(findings, this.accountBucket_.snapshot(request));
         findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
         findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
         Decision decision = decide_(
@@ -118,6 +122,8 @@ public final class AccwarderGatekeeper {
         List<Finding> findings = new ArrayList<>();
         this.activeThrottle_(request.network())
                 .ifPresent(throttled -> findings.addAll(throttled.findings()));
+        addCapacityFinding_(findings, this.loginBucket_.snapshot(request));
+        addCapacityFinding_(findings, this.accountBucket_.snapshot(request));
         findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
         findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
         Decision decision = decide_(
@@ -157,6 +163,21 @@ public final class AccwarderGatekeeper {
                     (client, current) -> current.equals(expired) ? null : current
             );
         }
+    }
+
+    private static void addCapacityFinding_(
+            Collection<Finding> findings,
+            Bucket.Snapshot snapshot
+    ) {
+        if (!snapshot.isFull()) {
+            return;
+        }
+
+        findings.add(new BucketCapacityFinding(
+                snapshot.globalCount(),
+                snapshot.maxRecords(),
+                snapshot.nextGlobalExpiration().orElseThrow()
+        ));
     }
 
     private static Decision decide_(

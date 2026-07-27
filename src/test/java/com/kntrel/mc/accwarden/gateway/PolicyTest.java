@@ -1,7 +1,6 @@
 package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.gateway.policy.AccountFinding;
 import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
@@ -10,6 +9,7 @@ import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.LoginBucket;
 import com.kntrel.mc.accwarden.gateway.policy.LoginFinding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.MultiClientAccountFinding;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -75,55 +75,42 @@ class PolicyTest {
     }
 
     @Test
-    void clientPolicyRejectsEveryClientWhenItsBucketIsFull() {
+    void clientPolicyLeavesBucketCapacityToTheGatekeeper() {
         MutableClock clock = new MutableClock(START);
         ClientPolicy policy = new ClientPolicy(WINDOW, 2, 10, 10);
         ClientBucket bucket = policy.newBucket(clock);
         bucket.record(CLIENT_A);
         bucket.record(CLIENT_B);
 
-        ClientFinding finding = assertInstanceOf(
-                ClientFinding.class,
-                policy.evaluate(client_(3), bucket).getFirst()
-        );
-
-        assertEquals(ClientFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
-        assertEquals(2, finding.count());
-        assertEquals(2, finding.limit());
-        assertEquals(START.plus(WINDOW), finding.retryAt());
+        assertTrue(policy.evaluate(client_(3), bucket).isEmpty());
     }
 
     @Test
-    void loginPolicyUsesOneCapacityForAttemptsAndFailures() {
+    void loginBucketUsesOneCapacityForAttemptsAndFailures() {
         MutableClock clock = new MutableClock(START);
         LoginPolicy policy = new LoginPolicy(WINDOW, 2, 10, 10);
         LoginBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_B));
 
-        LoginFinding finding = assertInstanceOf(
-                LoginFinding.class,
-                policy.evaluate(request_("charlie", client_(3)), bucket).getFirst()
-        );
-
-        assertEquals(LoginFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
         assertEquals(2, bucket.size());
-        assertEquals(START.plus(WINDOW), finding.retryAt());
+        assertTrue(policy.evaluate(request_("charlie", client_(3)), bucket).isEmpty());
     }
 
     @Test
-    void accountPolicyRejectsUnrelatedAccountsWhenItsBucketIsFull() {
+    void accountPolicyReportsMultipleClientsForTheSameAccount() {
         MutableClock clock = new MutableClock(START);
-        AccountPolicy policy = new AccountPolicy(WINDOW, 1, 10);
+        AccountPolicy policy = new AccountPolicy(WINDOW, 10, 1);
         AccountBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
 
-        AccountFinding finding = assertInstanceOf(
-                AccountFinding.class,
-                policy.evaluate(request_("bob", CLIENT_B), bucket).getFirst()
+        MultiClientAccountFinding finding = assertInstanceOf(
+                MultiClientAccountFinding.class,
+                policy.evaluate(request_("alice", CLIENT_B), bucket).getFirst()
         );
 
-        assertEquals(AccountFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
+        assertEquals(1, finding.count());
+        assertEquals(1, finding.limit());
         assertEquals(START.plus(WINDOW), finding.retryAt());
     }
 

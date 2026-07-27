@@ -17,7 +17,6 @@ public record LoginFinding(
     }
 
     public enum Threshold {
-        BUCKET_CAPACITY,
         ACCOUNT_CLIENT_ATTEMPTS,
         CLIENT_FAILED_LOGINS
     }

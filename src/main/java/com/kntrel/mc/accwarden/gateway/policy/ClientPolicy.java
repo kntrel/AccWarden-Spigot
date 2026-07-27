@@ -31,15 +31,7 @@ public final class ClientPolicy implements Policy<NetworkKey, ClientBucket, Clie
         Objects.requireNonNull(bucket, "bucket");
 
         Bucket.Snapshot snapshot = bucket.snapshot(client);
-        List<ClientFinding> findings = new ArrayList<>(3);
-        if (snapshot.isFull()) {
-            findings.add(new ClientFinding(
-                    snapshot.globalCount(),
-                    snapshot.maxRecords(),
-                    snapshot.nextGlobalExpiration().orElseThrow(),
-                    ClientFinding.Threshold.BUCKET_CAPACITY
-            ));
-        }
+        List<ClientFinding> findings = new ArrayList<>(2);
         if (snapshot.subjectCount() >= this.perClientLimit_) {
             findings.add(new ClientFinding(
                     snapshot.subjectCount(),

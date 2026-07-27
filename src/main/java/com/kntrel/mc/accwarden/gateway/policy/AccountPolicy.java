@@ -4,11 +4,11 @@ import com.kntrel.mc.accwarden.gateway.LoginRequest;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public final class AccountPolicy implements Policy<LoginRequest, AccountBucket, AccountFinding> {
+public final class AccountPolicy
+        implements Policy<LoginRequest, AccountBucket, MultiClientAccountFinding> {
 
     private final Duration window_;
     private final int maxRecords_, distinctClientLimit_;
@@ -28,33 +28,26 @@ public final class AccountPolicy implements Policy<LoginRequest, AccountBucket, 
     }
 
     @Override
-    public List<AccountFinding> evaluate(LoginRequest request, AccountBucket bucket) {
+    public List<MultiClientAccountFinding> evaluate(
+            LoginRequest request,
+            AccountBucket bucket
+    ) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(bucket, "bucket");
-
-        Bucket.Snapshot bucketSnapshot = bucket.snapshot(request);
-        List<AccountFinding> findings = new ArrayList<>(2);
-        if (bucketSnapshot.isFull()) {
-            findings.add(new AccountFinding(
-                    bucketSnapshot.globalCount(),
-                    bucketSnapshot.maxRecords(),
-                    bucketSnapshot.nextGlobalExpiration().orElseThrow(),
-                    AccountFinding.Threshold.BUCKET_CAPACITY
-            ));
-        }
 
         AccountBucket.ClientSnapshot snapshot = bucket.clientSnapshot(request);
         boolean newClientIsOverLimit = !snapshot.containsClient()
                 && snapshot.distinctClientCount() >= this.distinctClientLimit_;
-        if (newClientIsOverLimit) {
-            findings.add(new AccountFinding(
-                    snapshot.distinctClientCount(),
-                    this.distinctClientLimit_,
-                    snapshot.permitsNewClientAt().orElseThrow(),
-                    AccountFinding.Threshold.DISTINCT_CLIENTS
-            ));
+        if (!newClientIsOverLimit) {
+            return List.of();
         }
 
-        return List.copyOf(findings);
+        return List.of(
+                new MultiClientAccountFinding(
+                    snapshot.distinctClientCount(),
+                    this.distinctClientLimit_,
+                    snapshot.permitsNewClientAt().orElseThrow()
+                )
+        );
     }
 }

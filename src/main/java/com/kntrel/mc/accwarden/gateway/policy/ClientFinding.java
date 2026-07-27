@@ -17,7 +17,6 @@ public record ClientFinding(
     }
 
     public enum Threshold {
-        BUCKET_CAPACITY,
         CLIENT_CONNECTIONS,
         GLOBAL_CONNECTIONS
     }

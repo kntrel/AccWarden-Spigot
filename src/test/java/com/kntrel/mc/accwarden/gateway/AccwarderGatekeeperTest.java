@@ -1,13 +1,14 @@
 package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.account.Account;
-import com.kntrel.mc.accwarden.gateway.policy.AccountFinding;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.BucketCapacityFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.Finding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginFinding;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.MultiClientAccountFinding;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -120,11 +121,12 @@ class AccwarderGatekeeperTest {
         );
         assertEquals(CLIENT_B, multipleClients.penalty().client());
         assertEquals(START.plus(WINDOW), multipleClients.penalty().until());
-        AccountFinding finding = assertInstanceOf(
-                AccountFinding.class,
+        MultiClientAccountFinding finding = assertInstanceOf(
+                MultiClientAccountFinding.class,
                 multipleClients.findings().getFirst()
         );
-        assertEquals(AccountFinding.Threshold.DISTINCT_CLIENTS, finding.threshold());
+        assertEquals(1, finding.count());
+        assertEquals(1, finding.limit());
 
         assertInstanceOf(
                 Decision.Pass.class,
@@ -188,6 +190,66 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
+    void clientBucketCapacityIsACommonGatewayFinding() {
+        MutableClock clock = new MutableClock(START);
+        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 10, 10);
+        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 2, 10, 10);
+        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 10, 10, 10);
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                accountPolicy,
+                clientPolicy,
+                loginPolicy,
+                clock
+        );
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
+        Decision.Throttled decision = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerConnection(CLIENT_C)
+        );
+        BucketCapacityFinding finding = assertInstanceOf(
+                BucketCapacityFinding.class,
+                decision.penalty().cause()
+        );
+
+        assertEquals(2, finding.count());
+        assertEquals(2, finding.limit());
+        assertEquals(START.plus(WINDOW), finding.retryAt());
+    }
+
+    @Test
+    void accountBucketCapacityIsACommonGatewayFinding() {
+        MutableClock clock = new MutableClock(START);
+        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 1, 10);
+        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 10, 10, 10);
+        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 10, 10, 10);
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                accountPolicy,
+                clientPolicy,
+                loginPolicy,
+                clock
+        );
+
+        assertInstanceOf(
+                Decision.Pass.class,
+                gatekeeper.considerLogin(new LoginRequest(account_("alice"), CLIENT_A))
+        );
+        Decision.Throttled decision = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerLogin(new LoginRequest(account_("bob"), CLIENT_B))
+        );
+        BucketCapacityFinding finding = assertInstanceOf(
+                BucketCapacityFinding.class,
+                decision.penalty().cause()
+        );
+
+        assertEquals(1, finding.count());
+        assertEquals(1, finding.limit());
+        assertEquals(START.plus(WINDOW), finding.retryAt());
+    }
+
+    @Test
     void failedLoginDoesNotOverflowAFullLoginBucket() {
         MutableClock clock = new MutableClock(START);
         AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 10, 10);
@@ -206,11 +268,12 @@ class AccwarderGatekeeperTest {
                 Decision.Throttled.class,
                 gatekeeper.recordFailedLogin(request)
         );
-        LoginFinding finding = assertInstanceOf(
-                LoginFinding.class,
+        BucketCapacityFinding finding = assertInstanceOf(
+                BucketCapacityFinding.class,
                 decision.findings().getFirst()
         );
-        assertEquals(LoginFinding.Threshold.BUCKET_CAPACITY, finding.threshold());
+        assertEquals(1, finding.count());
+        assertEquals(1, finding.limit());
     }
 
     @Test
