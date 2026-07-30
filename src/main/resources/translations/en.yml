@@ -125,6 +125,7 @@ error:
   kicked:
     not_registered: "You must register with a password to play in this server."
     not_logged: "You must enter your password to play."
+    throttled: "Too many authentication attempts. Please try again later."
     locked: "Your account has been locked."
     auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
 

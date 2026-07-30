@@ -1,6 +1,5 @@
 package com.kntrel.mc.accwarden.gateway;
 
-import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
@@ -156,13 +155,8 @@ class PolicyTest {
     }
 
     @Test
-    void loginPoliciesRequireAnAccountUuid() {
-        MutableClock clock = new MutableClock(START);
-        LoginPolicy policy = new LoginPolicy(WINDOW, 10, 10, 10);
-        LoginBucket bucket = policy.newBucket(clock);
-        LoginRequest request = new LoginRequest(new UnidentifiedAccount("alice"), CLIENT_A);
-
-        assertThrows(IllegalArgumentException.class, () -> policy.evaluate(request, bucket));
+    void loginRequestsRequireAnAccountId() {
+        assertThrows(NullPointerException.class, () -> new LoginRequest(null, CLIENT_A));
     }
 
     private static ClientFinding finding_(
@@ -176,27 +170,15 @@ class PolicyTest {
     }
 
     private static LoginRequest request_(String account, NetworkKey client) {
-        return new LoginRequest(new TestAccount(account), client);
+        return new LoginRequest(
+                UUID.nameUUIDFromBytes(
+                        account.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8)
+                ),
+                client
+        );
     }
 
     private static NetworkKey client_(int lastByte) {
         return new NetworkKey(new byte[] {(byte) 192, 0, 2, (byte) lastByte});
-    }
-
-    private static final class TestAccount extends Account {
-
-        private TestAccount(String name) {
-            super(name);
-            this.setUuid(UUID.nameUUIDFromBytes(
-                    name.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8)
-            ));
-        }
-    }
-
-    private static final class UnidentifiedAccount extends Account {
-
-        private UnidentifiedAccount(String name) {
-            super(name);
-        }
     }
 }

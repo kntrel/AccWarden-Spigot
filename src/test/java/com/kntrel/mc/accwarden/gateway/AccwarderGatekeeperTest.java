@@ -1,6 +1,5 @@
 package com.kntrel.mc.accwarden.gateway;
 
-import com.kntrel.mc.accwarden.account.Account;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.BucketCapacityFinding;
 import com.kntrel.mc.accwarden.gateway.policy.ClientFinding;
@@ -141,7 +140,7 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
-    void accountPolicyRecognizesTheSameAccountAcrossObjectInstances() {
+    void accountPolicyRecognizesTheSameAccountId() {
         AccwarderGatekeeper gatekeeper = this.gatekeeper_(10, 100, 10, 10, 1);
 
         assertInstanceOf(
@@ -343,21 +342,13 @@ class AccwarderGatekeeperTest {
         );
     }
 
-    private static Account account_(String name) {
-        return new TestAccount(name);
+    private static UUID account_(String name) {
+        return UUID.nameUUIDFromBytes(
+                name.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private static NetworkKey client_(int lastByte) {
         return new NetworkKey(new byte[] {(byte) 192, 0, 2, (byte) lastByte});
-    }
-
-    private static final class TestAccount extends Account {
-
-        private TestAccount(String name) {
-            super(name);
-            this.setUuid(UUID.nameUUIDFromBytes(
-                    name.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8)
-            ));
-        }
     }
 }

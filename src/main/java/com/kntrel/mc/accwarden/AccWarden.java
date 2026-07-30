@@ -3,6 +3,11 @@ package com.kntrel.mc.accwarden;
 import com.kntrel.mc.accwarden.account.AccountService;
 import com.kntrel.mc.accwarden.command.AccountArgumentBindings;
 import com.kntrel.mc.accwarden.command.AccountCommand;
+import com.kntrel.mc.accwarden.gateway.AccWardenGate;
+import com.kntrel.mc.accwarden.gateway.AccwarderGatekeeper;
+import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabase;
 import com.kntrel.mc.accwarden.persistence.sqlite.SQLiteDatabaseInitializer;
 import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
@@ -18,12 +23,16 @@ import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import org.bukkit.plugin.java.JavaPlugin;
+
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.logging.Level;
 
 public final class AccWarden extends JavaPlugin {
 
     private static final String TRANSLATIONS_DIRECTORY = "translations";
+    private static final Duration GATEKEEPING_WINDOW = Duration.ofMinutes(1);
+    private static final int GATEKEEPING_CAPACITY = 10_000;
 
     //FIELDS
     public AccWardenConfig CONFIG = AccWardenConfig.DEFAULT;
@@ -62,7 +71,10 @@ public final class AccWarden extends JavaPlugin {
         AccountArgumentBindings.register(commvoker, this);
         commvoker.register(new AccountCommand(this));
 
-        this.getServer().getPluginManager().registerEvents(new AccWardenGate(this), this);
+        this.getServer().getPluginManager().registerEvents(
+                new AccWardenGate(this, this.createGatekeeper_()),
+                this
+        );
     }
 
     @Override
@@ -127,6 +139,14 @@ public final class AccWarden extends JavaPlugin {
         //----------------------------------------------------
 
         return new JavaOnlyPlatformRouter(javaPlatform);
+    }
+
+    private AccwarderGatekeeper createGatekeeper_() {
+        return new AccwarderGatekeeper(
+                new AccountPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 5),
+                new ClientPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 10, 1_000),
+                new LoginPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 5, 5)
+        );
     }
 
     private void startAutoNameLinker_() {

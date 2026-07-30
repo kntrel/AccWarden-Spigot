@@ -25,13 +25,13 @@ public final class AccountBucket extends BucketImpl<LoginRequest, UUID> {
 
     @Override
     protected UUID key(LoginRequest request) {
-        return AccountIdentity.uuid(request);
+        return Objects.requireNonNull(request, "request").accountId();
     }
 
     public synchronized ClientSnapshot clientSnapshot(LoginRequest request) {
         Objects.requireNonNull(request, "request");
         Instant now = this.refresh();
-        AccountClients accountClients = this.clientsByAccount_.get(AccountIdentity.uuid(request));
+        AccountClients accountClients = this.clientsByAccount_.get(request.accountId());
         if (accountClients == null) {
             return new ClientSnapshot(now, 0, false, Optional.empty());
         }

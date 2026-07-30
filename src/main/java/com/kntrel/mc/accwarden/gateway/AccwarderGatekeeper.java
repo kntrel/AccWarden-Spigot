@@ -77,22 +77,9 @@ public final class AccwarderGatekeeper {
         this.remember_(decision);
         return decision;
     }
-    public synchronized Decision considerLogin(LoginRequest request) {
-        Objects.requireNonNull(request, "request");
-        Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(request.network());
-        if (activeThrottle.isPresent()) {
-            return activeThrottle.orElseThrow();
-        }
 
-        List<Finding> findings = new ArrayList<>();
-        addCapacityFinding_(findings, this.loginBucket_.snapshot(request));
-        addCapacityFinding_(findings, this.accountBucket_.snapshot(request));
-        findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
-        findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
-        Decision decision = decide_(
-                request.network(),
-                findings
-        );
+    public synchronized Decision considerLogin(LoginRequest request) {
+        Decision decision = this.evaluateLogin_(Objects.requireNonNull(request, "request"));
         if (decision instanceof Decision.Pass) {
             this.loginBucket_.record(request);
             this.accountBucket_.record(request);
@@ -122,6 +109,20 @@ public final class AccwarderGatekeeper {
 
 
     // HELPERS
+    private Decision evaluateLogin_(LoginRequest request) {
+        Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(request.network());
+        if (activeThrottle.isPresent()) {
+            return activeThrottle.orElseThrow();
+        }
+
+        List<Finding> findings = new ArrayList<>();
+        addCapacityFinding_(findings, this.loginBucket_.snapshot(request));
+        addCapacityFinding_(findings, this.accountBucket_.snapshot(request));
+        findings.addAll(this.loginPolicy_.evaluate(request, this.loginBucket_));
+        findings.addAll(this.accountPolicy_.evaluate(request, this.accountBucket_));
+        return decide_(request.network(), findings);
+    }
+
     private Optional<Decision.Throttled> activeThrottle_(NetworkKey client) {
         this.discardExpiredThrottles_();
         Decision.Throttled throttle = this.throttlesByClient_.get(client);

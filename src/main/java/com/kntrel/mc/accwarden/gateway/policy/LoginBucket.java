@@ -18,7 +18,7 @@ public final class LoginBucket extends BucketImpl<LoginRequest, LoginBucket.Reco
     protected RecordKey key(LoginRequest request) {
         Objects.requireNonNull(request, "request");
         return new RecordKey.Attempt(
-                AccountIdentity.uuid(request),
+                request.accountId(),
                 request.network()
         );
     }
@@ -35,7 +35,7 @@ public final class LoginBucket extends BucketImpl<LoginRequest, LoginBucket.Reco
 
     public sealed interface RecordKey {
 
-        record Attempt(UUID account, NetworkKey client) implements RecordKey {}
+        record Attempt(UUID accountId, NetworkKey client) implements RecordKey {}
 
         record Failure(NetworkKey client) implements RecordKey {}
     }
