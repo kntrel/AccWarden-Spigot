@@ -1,14 +1,8 @@
 package com.kntrel.mc.accwarden.gateway;
 
-import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
-import com.kntrel.mc.accwarden.gateway.policy.AccountBucket;
-import com.kntrel.mc.accwarden.gateway.policy.Bucket;
-import com.kntrel.mc.accwarden.gateway.policy.BucketCapacityFinding;
-import com.kntrel.mc.accwarden.gateway.policy.ClientBucket;
-import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
-import com.kntrel.mc.accwarden.gateway.policy.Finding;
-import com.kntrel.mc.accwarden.gateway.policy.LoginBucket;
-import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
+import com.kntrel.mc.accwarden.gateway.policy.*;
+
+import javax.annotation.Nullable;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,6 +21,7 @@ import java.util.PriorityQueue;
  */
 public final class AccwarderGatekeeper {
 
+    // FIELDS
     private final AccountPolicy accountPolicy_;
     private final ClientPolicy clientPolicy_;
     private final LoginPolicy loginPolicy_;
@@ -39,6 +34,8 @@ public final class AccwarderGatekeeper {
             Comparator.comparing(throttled -> throttled.penalty().until())
     );
 
+
+    // CONSTRUCTORS
     public AccwarderGatekeeper(
             AccountPolicy accountPolicy,
             ClientPolicy clientPolicy,
@@ -46,7 +43,6 @@ public final class AccwarderGatekeeper {
     ) {
         this(accountPolicy, clientPolicy, loginPolicy, Clock.systemUTC());
     }
-
     public AccwarderGatekeeper(
             AccountPolicy accountPolicy,
             ClientPolicy clientPolicy,
@@ -62,9 +58,8 @@ public final class AccwarderGatekeeper {
         this.loginBucket_ = this.loginPolicy_.newBucket(this.clock_);
     }
 
-    /**
-     * Evaluates and, when permitted, records a connection attempt.
-     */
+
+    // CONTRACT
     public synchronized Decision considerConnection(NetworkKey client) {
         Objects.requireNonNull(client, "client");
         Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(client);
@@ -79,12 +74,9 @@ public final class AccwarderGatekeeper {
         if (decision instanceof Decision.Pass) {
             this.clientBucket_.record(client);
         }
+        this.remember_(decision);
         return decision;
     }
-
-    /**
-     * Evaluates and, when permitted, records a login attempt.
-     */
     public synchronized Decision considerLogin(LoginRequest request) {
         Objects.requireNonNull(request, "request");
         Optional<Decision.Throttled> activeThrottle = this.activeThrottle_(request.network());
@@ -107,12 +99,6 @@ public final class AccwarderGatekeeper {
         }
         return decision;
     }
-
-    /**
-     * Records the failed outcome of a previously permitted login.
-     * Any resulting throttle applies to both subsequent connections and logins
-     * from the same network key until the penalty expires.
-     */
     public synchronized Decision recordFailedLogin(LoginRequest request) {
         Objects.requireNonNull(request, "request");
         if (!this.loginBucket_.isFull()) {
@@ -134,6 +120,8 @@ public final class AccwarderGatekeeper {
         return decision;
     }
 
+
+    // HELPERS
     private Optional<Decision.Throttled> activeThrottle_(NetworkKey client) {
         this.discardExpiredThrottles_();
         Decision.Throttled throttle = this.throttlesByClient_.get(client);
@@ -192,13 +180,29 @@ public final class AccwarderGatekeeper {
             return new Decision.Pass();
         }
 
-        Finding cause = collectedFindings.stream()
-                .max(Comparator.comparing(Finding::retryAt))
-                .orElseThrow();
+        Finding cause = computeCause_(collectedFindings);
+
+        if (cause == null) {
+            return new Decision.Pass(collectedFindings);
+        }
+
         return new Decision.Throttled(
                 new Penalty(client, cause.retryAt(), cause),
                 collectedFindings
         );
+    }
+
+    private static @Nullable Finding computeCause_(Collection<? extends Finding> findings) {
+        Finding max = null;
+
+        for (Finding f : findings) {
+            if (f instanceof MultiClientAccountFinding) { continue; }
+            if (max == null || f.retryAt().isAfter(max.retryAt())) {
+                max = f;
+            }
+        }
+
+        return max;
     }
 
 }
