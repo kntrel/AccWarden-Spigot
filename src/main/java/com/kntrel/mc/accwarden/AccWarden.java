@@ -25,7 +25,6 @@ import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
-
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.time.Duration;

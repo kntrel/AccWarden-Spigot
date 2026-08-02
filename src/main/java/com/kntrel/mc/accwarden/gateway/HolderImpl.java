@@ -100,18 +100,24 @@ public final class HolderImpl implements Holder, Listener {
         try {
             LocationKey location = LocationKey.fromBytes(serializedLocation);
             World world = this.plugin_.getServer().getWorld(location.worldId());
-            if (world != null) {
-                player.teleport(new Location(
-                        world,
-                        location.x(),
-                        location.y(),
-                        location.z(),
-                        location.yaw(),
-                        location.pitch()
-                ));
+            if (world == null) {
+                this.plugin_.getServer().getWorlds().stream()
+                        .findFirst()
+                        .ifPresent(w -> player.teleport(w.getSpawnLocation()));
+                return;
             }
+
+            player.teleport(new Location(
+                    world,
+                    location.x(),
+                    location.y(),
+                    location.z(),
+                    location.yaw(),
+                    location.pitch()
+            ));
         } catch (IllegalArgumentException _) {}
     }
+
 
     private void restoreGameMode_(Player player, PersistentDataContainer container) {
         String gameMode = container.get(this.gameModeKey_, PersistentDataType.STRING);
