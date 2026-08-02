@@ -2,8 +2,11 @@ package com.kntrel.mc.accwarden;
 
 import org.bukkit.configuration.ConfigurationSection;
 
+import javax.annotation.Nullable;
+
 public record AccWardenConfig(
         String defaultLanguage,
+        @Nullable String holdWorld,
         boolean playerNameAutoLinking,
         int sessionHoldTime,
         boolean failLoginAccountLock,
@@ -15,6 +18,7 @@ public record AccWardenConfig(
 ) {
     public static final AccWardenConfig DEFAULT = new AccWardenConfig(
             "en",
+            null,
             false,
             300,
             false,
@@ -28,6 +32,7 @@ public record AccWardenConfig(
     public static AccWardenConfig load(ConfigurationSection config) {
         return new AccWardenConfig(
                 config.getString("defaultLanguage", DEFAULT.defaultLanguage()),
+                config.getString("holdWorld", DEFAULT.holdWorld()),
                 config.getBoolean("playerNameAutoLinking", DEFAULT.playerNameAutoLinking()),
                 config.getInt("sessions.holdTime", DEFAULT.sessionHoldTime()),
                 config.getBoolean("failed_login_count.accountLock", DEFAULT.failLoginAccountLock()),

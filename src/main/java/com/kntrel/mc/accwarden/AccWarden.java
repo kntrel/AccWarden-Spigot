@@ -5,6 +5,7 @@ import com.kntrel.mc.accwarden.command.AccountArgumentBindings;
 import com.kntrel.mc.accwarden.command.AccountCommand;
 import com.kntrel.mc.accwarden.gateway.AccWardenGate;
 import com.kntrel.mc.accwarden.gateway.AccwarderGatekeeper;
+import com.kntrel.mc.accwarden.gateway.HolderImpl;
 import com.kntrel.mc.accwarden.gateway.policy.AccountPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.ClientPolicy;
 import com.kntrel.mc.accwarden.gateway.policy.LoginPolicy;
@@ -22,8 +23,10 @@ import com.kntrel.mc.accwarden.session.SessionService;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
+import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.logging.Level;
@@ -71,8 +74,10 @@ public final class AccWarden extends JavaPlugin {
         AccountArgumentBindings.register(commvoker, this);
         commvoker.register(new AccountCommand(this));
 
+        HolderImpl holder = new HolderImpl(this, this.resolveHoldWorld_());
+        this.getServer().getPluginManager().registerEvents(holder, this);
         this.getServer().getPluginManager().registerEvents(
-                new AccWardenGate(this, this.createGatekeeper_()),
+                new AccWardenGate(this, this.createGatekeeper_(), holder),
                 this
         );
     }
@@ -147,6 +152,21 @@ public final class AccWarden extends JavaPlugin {
                 new ClientPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 10, 1_000),
                 new LoginPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 5, 5)
         );
+    }
+
+    private @Nullable World resolveHoldWorld_() {
+        String worldName = this.CONFIG.holdWorld();
+        if (worldName == null || worldName.isBlank()) {
+            return null;
+        }
+
+        World world = this.getServer().getWorld(worldName);
+        if (world == null) {
+            this.getLogger().warning(
+                    "The configured hold world '" + worldName + "' is not loaded. Hold-world teleporting is disabled."
+            );
+        }
+        return world;
     }
 
     private void startAutoNameLinker_() {

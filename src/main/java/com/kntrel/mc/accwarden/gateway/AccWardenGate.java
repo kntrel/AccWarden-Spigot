@@ -5,17 +5,11 @@ import com.kntrel.mc.accwarden.event.PlayerAccountAuthenticationFailedEvent;
 import com.kntrel.mc.accwarden.session.SessionResult;
 import com.kntrel.mc.accwarden.session.SessionService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.GameMode;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -28,16 +22,14 @@ public final class AccWardenGate implements Listener {
     private final SessionService sessionService_;
     private final AccwarderGatekeeper gatekeeper_;
     private final NetworkKeyResolver networkKeyResolver_;
-    private final NamespacedKey notLoggedKey_;
-    private final NamespacedKey gameModeKey_;
+    private final Holder holder_;
 
-    public AccWardenGate(AccWarden plugin, AccwarderGatekeeper gatekeeper) {
+    public AccWardenGate(AccWarden plugin, AccwarderGatekeeper gatekeeper, Holder holder) {
         this.plugin_ = Objects.requireNonNull(plugin, "plugin");
         this.sessionService_ = this.plugin_.getSessionService();
         this.gatekeeper_ = Objects.requireNonNull(gatekeeper, "gatekeeper");
         this.networkKeyResolver_ = new NetworkKeyResolver(32, 64);
-        this.notLoggedKey_ = new NamespacedKey(plugin, "notLogged");
-        this.gameModeKey_ = new NamespacedKey(plugin, "loggedGameMode");
+        this.holder_ = Objects.requireNonNull(holder, "holder");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -69,7 +61,7 @@ public final class AccWardenGate implements Listener {
 
         CompletableFuture<SessionResult> session = this.sessionService_.openSession(player);
         if (!session.isDone()) {
-            this.hold_(player);
+            this.holder_.hold(player);
         }
 
         session.whenComplete((result, throwable) -> this.runSync_(() -> {
@@ -100,113 +92,23 @@ public final class AccWardenGate implements Listener {
     @EventHandler
     void OnPlayerQuit(PlayerQuitEvent e) {
         Player player = e.getPlayer();
-        if (!this.isLogged_(player)) {
+        if (this.holder_.isHeld(player)) {
             return;
         }
         this.sessionService_.rememberSession(player);
-    }
-
-    @EventHandler
-    void OnPlayerMove(PlayerMoveEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void OnPlayerOpenInventory(InventoryOpenEvent e) {
-        if (!(e.getPlayer() instanceof Player player)) { return; }
-        if (this.isLogged_(player)) { return; }
-        player.closeInventory();
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void OnPlayerInteract(PlayerInteractEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void OnPlayerInteractEntity(PlayerInteractEntityEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void OnPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.setCancelled(true);
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    void OnPlayerUseChat(AsyncPlayerChatEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.getPlayer().sendMessage(ChatColor.RED + this.plugin_.getRunical()
-                .translate(e.getPlayer(), "error.not_allowed.send_message")
-                .orDefault("")
-                .message());
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void OnPlayerIssueCommand(PlayerCommandPreprocessEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.getPlayer().sendMessage(ChatColor.DARK_GRAY + this.plugin_.getRunical()
-                .translate(e.getPlayer(), "error.not_allowed.issue_command")
-                .orDefault("")
-                .message());
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    void onPlayerDropItem(PlayerDropItemEvent e) {
-        if (this.isLogged_(e.getPlayer())) { return; }
-        e.setCancelled(true);
     }
 
     private void completeSession_(Player player, SessionResult result) {
         if (result instanceof SessionResult.Caches
                 || result instanceof SessionResult.Opened
                 || result instanceof SessionResult.Registered) {
-            this.releaseHold_(player);
+            this.holder_.unhold(player);
             return;
         }
         if (result instanceof SessionResult.Failed failed) {
             this.logFailure_(player, failed.cause());
         }
         this.kick_(player);
-    }
-
-    private boolean isLogged_(Player player) {
-        PersistentDataContainer container = player.getPersistentDataContainer();
-        if (!container.has(this.notLoggedKey_, PersistentDataType.BYTE)) {
-            return true;
-        }
-
-        Byte value = container.get(this.notLoggedKey_, PersistentDataType.BYTE);
-        return value != null && value <= 0;
-    }
-
-    private void hold_(Player player) {
-        PersistentDataContainer container = player.getPersistentDataContainer();
-        container.set(this.notLoggedKey_, PersistentDataType.BYTE, (byte) 1);
-        if (!container.has(this.gameModeKey_, PersistentDataType.STRING)) {
-            container.set(this.gameModeKey_, PersistentDataType.STRING, player.getGameMode().toString());
-        }
-        player.setGameMode(GameMode.SPECTATOR);
-    }
-
-    private void releaseHold_(Player player) {
-        PersistentDataContainer container = player.getPersistentDataContainer();
-        container.remove(this.notLoggedKey_);
-        if (!container.has(this.gameModeKey_, PersistentDataType.STRING)) {
-            return;
-        }
-        String gameModeString = container.get(this.gameModeKey_, PersistentDataType.STRING);
-        container.remove(this.gameModeKey_);
-        try {
-            player.setGameMode(GameMode.valueOf(gameModeString));
-        } catch (IllegalArgumentException ignored) {}
     }
 
     private void kick_(Player player) {
@@ -220,7 +122,7 @@ public final class AccWardenGate implements Listener {
     }
 
     private void kick_(Player player, String message) {
-        this.hold_(player);
+        this.holder_.hold(player);
         player.kickPlayer(message);
     }
 
