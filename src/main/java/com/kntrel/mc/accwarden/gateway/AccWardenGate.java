@@ -1,6 +1,7 @@
 package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.AccWarden;
+import com.kntrel.mc.accwarden.event.PlayerAccountAuthenticationFailedEvent;
 import com.kntrel.mc.accwarden.session.SessionResult;
 import com.kntrel.mc.accwarden.session.SessionService;
 import org.bukkit.Bukkit;
@@ -80,8 +81,20 @@ public final class AccWardenGate implements Listener {
                 this.kick_(player);
                 return;
             }
-            this.completeSession_(player, request, result);
+            this.completeSession_(player, result);
         }));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    void OnPlayerAuthenticationFailed(PlayerAccountAuthenticationFailedEvent e) {
+        Player player = e.getPlayer();
+        LoginRequest request = new LoginRequest(
+                player.getUniqueId(),
+                this.networkKeyResolver_.resolve(player)
+        );
+        if (this.gatekeeper_.recordFailedLogin(request) instanceof Decision.Throttled) {
+            e.kick(this.throttledMessage_(player));
+        }
     }
 
     @EventHandler
@@ -151,11 +164,7 @@ public final class AccWardenGate implements Listener {
         e.setCancelled(true);
     }
 
-    private void completeSession_(
-            Player player,
-            LoginRequest request,
-            SessionResult result
-    ) {
+    private void completeSession_(Player player, SessionResult result) {
         if (result instanceof SessionResult.Caches
                 || result instanceof SessionResult.Opened
                 || result instanceof SessionResult.Registered) {
@@ -164,12 +173,6 @@ public final class AccWardenGate implements Listener {
         }
         if (result instanceof SessionResult.Failed failed) {
             this.logFailure_(player, failed.cause());
-        }
-        if (result instanceof SessionResult.Unauthenticated) {
-            if (this.gatekeeper_.recordFailedLogin(request) instanceof Decision.Throttled) {
-                this.kick_(player, this.throttledMessage_(player));
-                return;
-            }
         }
         this.kick_(player);
     }

@@ -7,6 +7,7 @@ import com.kntrel.mc.accwarden.account.exception.InvalidPasswordException;
 import com.kntrel.mc.accwarden.account.exception.LogginException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooLongException;
 import com.kntrel.mc.accwarden.account.exception.PasswordTooShortException;
+import com.kntrel.mc.accwarden.event.PlayerAccountAuthenticationFailedEvent;
 import com.kntrel.mc.accwarden.event.PlayerAccountLoginEvent;
 import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
@@ -154,12 +155,23 @@ public final class SessionService {
             LogginException exception
     ) {
         return switch (exception.getReason()) {
-            case INCORRECT_PASSWORD -> this.startAuthentication_(
-                    player,
-                    platform,
-                    account,
-                    AuthenticationViewState.failed(state.kind(), new AuthenticationViewState.Failure.IncorrectPassword())
-            );
+            case INCORRECT_PASSWORD -> {
+                PlayerAccountAuthenticationFailedEvent event =
+                        new PlayerAccountAuthenticationFailedEvent(player, platform, account);
+                this.plugin_.getServer().getPluginManager().callEvent(event);
+                if (event.isKicked()) {
+                    yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
+                }
+                yield this.startAuthentication_(
+                        player,
+                        platform,
+                        account,
+                        AuthenticationViewState.failed(
+                                state.kind(),
+                                new AuthenticationViewState.Failure.IncorrectPassword()
+                        )
+                );
+            }
             case ACCOUNT_LOCKED -> {
                 player.sendMessage(ChatColor.RED + this.plugin_.getRunical()
                         .translate(player, "error.kicked.locked")
