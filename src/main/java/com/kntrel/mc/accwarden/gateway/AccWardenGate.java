@@ -2,9 +2,9 @@ package com.kntrel.mc.accwarden.gateway;
 
 import com.kntrel.mc.accwarden.AccWarden;
 import com.kntrel.mc.accwarden.event.PlayerAccountAuthenticationFailedEvent;
+import com.kntrel.mc.accwarden.session.SessionJob;
 import com.kntrel.mc.accwarden.session.SessionResult;
 import com.kntrel.mc.accwarden.session.SessionService;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.*;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.logging.Level;
 
@@ -59,22 +58,15 @@ public final class AccWardenGate implements Listener {
             return;
         }
 
-        CompletableFuture<SessionResult> session = this.sessionService_.openSession(player);
-        if (!session.isDone()) {
-            this.holder_.hold(player);
-        }
-
-        session.whenComplete((result, throwable) -> this.runSync_(() -> {
-            if (!player.isOnline()) {
-                return;
-            }
-            if (throwable != null) {
-                this.logFailure_(player, throwable);
-                this.kick_(player);
-                return;
-            }
-            this.completeSession_(player, result);
-        }));
+        SessionJob job = SessionJob.forPlayer(player)
+                .onUncached(context -> this.holder_.hold(context.player()))
+                .onComplete(completion -> {
+                    if (completion.player().isOnline()) {
+                        this.completeSession_(completion.player(), completion.result());
+                    }
+                })
+                .build();
+        this.sessionService_.openSession(job);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -131,14 +123,6 @@ public final class AccWardenGate implements Listener {
                 .translate(player, "error.kicked.throttled")
                 .orDefault("Too many authentication attempts. Please try again later.")
                 .message();
-    }
-
-    private void runSync_(Runnable runnable) {
-        if (Bukkit.isPrimaryThread()) {
-            runnable.run();
-            return;
-        }
-        this.plugin_.getServer().getScheduler().runTask(this.plugin_, runnable);
     }
 
     private void logFailure_(Player player, Throwable throwable) {

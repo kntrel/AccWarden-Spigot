@@ -14,11 +14,13 @@ import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.logging.Level;
 
 public final class SessionService {
 
@@ -38,15 +40,31 @@ public final class SessionService {
     }
 
     public CompletableFuture<SessionResult> openSession(Player player) {
+        CompletableFuture<SessionResult> future = new CompletableFuture<>();
+        SessionJob job = SessionJob.forPlayer(player)
+                .onComplete(c -> future.complete(c.result()))
+                .build();
+        this.openSession(job);
+        return future;
+    }
+
+    public CompletableFuture<SessionResult> openSession(SessionJob job) {
+        Objects.requireNonNull(job, "job");
+        Player player = Objects.requireNonNull(job.player(), "job.player()");
+        CompletableFuture<SessionResult> flow;
         try {
             Platform platform = this.requireRouter_().getPlatform(player);
-            return this.sessionHolder_
+            flow = this.sessionHolder_
                     .claim(player, platform)
-                    .map(session -> CompletableFuture.completedFuture(this.resumeSession_(player, session)))
-                    .orElseGet(() -> this.startSession_(player, platform));
+                    .map(cached -> CompletableFuture.completedFuture(this.resumeSession_(player, cached)))
+                    .orElseGet(() -> {
+                        job.onUncached(new SessionJob.Uncached(player, platform));
+                        return this.startSession_(job, player, platform);
+                    });
         } catch (RuntimeException ex) {
-            return CompletableFuture.completedFuture(this.failFlow_(ex));
+            flow = CompletableFuture.completedFuture(this.failFlow_(ex));
         }
+        return this.completeJob_(job, player, flow);
     }
 
     public void rememberSession(Player player) {
@@ -94,20 +112,22 @@ public final class SessionService {
                 .message());
     }
 
-    private CompletableFuture<SessionResult> startSession_(Player player, Platform platform) {
+    private CompletableFuture<SessionResult> startSession_(SessionJob job, Player player, Platform platform) {
         Optional<Account> account = this.accountService_.get(player, platform);
         if (account.isEmpty()) {
-            return this.startRegistration_(player, platform, RegistrationViewState.initial());
+            return this.beginRegistration_(job, player, platform);
         }
 
         AuthenticationViewState authenticationViewState = account.get().getJoinedFromPlatforms().contains(platform.key())
                 ? AuthenticationViewState.regular()
                 : AuthenticationViewState.platformFirstTime();
 
-        return this.startAuthentication_(player, platform, account.get(), authenticationViewState);
+        job.beforeAuthentication(new SessionJob.Authentication(player, platform, account.get()));
+        return this.startAuthentication_(job, player, platform, account.get(), authenticationViewState);
     }
 
     private CompletableFuture<SessionResult> startAuthentication_(
+            SessionJob job,
             Player player,
             Platform platform,
             Account account,
@@ -115,7 +135,7 @@ public final class SessionService {
     ) {
         try {
             return this.await_(platform.views().authentication(player, state).present(player, platform), player)
-                    .thenCompose(action -> this.completeAuthentication_(player, platform, account, state, action))
+                    .thenCompose(action -> this.completeAuthentication_(job, player, platform, account, state, action))
                     .exceptionally(this::failFlow_);
         } catch (RuntimeException ex) {
             return CompletableFuture.completedFuture(this.failFlow_(ex));
@@ -123,6 +143,7 @@ public final class SessionService {
     }
 
     private CompletableFuture<SessionResult> completeAuthentication_(
+            SessionJob job,
             Player player,
             Platform platform,
             Account account,
@@ -134,7 +155,7 @@ public final class SessionService {
                 Account loggedAccount = this.accountService_.authenticate(account, password.password());
                 return CompletableFuture.completedFuture(this.openSessionAndNotify_(player, platform, loggedAccount, SessionResult::opened));
             } catch (LogginException ex) {
-                return this.authenticationFailure_(player, platform, account, state, ex);
+                return this.authenticationFailure_(job, player, platform, account, state, ex);
             }
         }
         if (action instanceof AuthenticationAction.Quit) {
@@ -148,6 +169,7 @@ public final class SessionService {
     }
 
     private CompletableFuture<SessionResult> authenticationFailure_(
+            SessionJob job,
             Player player,
             Platform platform,
             Account account,
@@ -163,6 +185,7 @@ public final class SessionService {
                     yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
                 }
                 yield this.startAuthentication_(
+                        job,
                         player,
                         platform,
                         account,
@@ -176,7 +199,7 @@ public final class SessionService {
                         .message());
                 yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
             }
-            case ACCOUNT_NOT_FOUND -> this.startRegistration_(player, platform, RegistrationViewState.initial());
+            case ACCOUNT_NOT_FOUND -> this.beginRegistration_(job, player, platform);
             case DENIED -> {
                 exception.getPublicMessage().ifPresent(player::sendMessage);
                 yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
@@ -203,6 +226,11 @@ public final class SessionService {
     private SessionResult resumeSession_(Player player, OpenSession session) {
         this.sendLoggedIn_(player);
         return SessionResult.caches(session);
+    }
+
+    private CompletableFuture<SessionResult> beginRegistration_(SessionJob job, Player player, Platform platform) {
+        job.beforeRegistration(new SessionJob.Registration(player, platform));
+        return this.startRegistration_(player, platform, RegistrationViewState.initial());
     }
 
     private CompletableFuture<SessionResult> startRegistration_(Player player, Platform platform, RegistrationViewState state) {
@@ -269,6 +297,24 @@ public final class SessionService {
     private SessionResult failFlow_(Throwable throwable) {
         Throwable cause = this.unwrap_(throwable);
         return SessionResult.failed(cause);
+    }
+
+    private CompletableFuture<SessionResult> completeJob_(
+            SessionJob job,
+            Player player,
+            CompletableFuture<SessionResult> flow
+    ) {
+        CompletableFuture<SessionResult> completed = new CompletableFuture<>();
+        flow.whenComplete((result, throwable) -> this.runSync_(() -> {
+            SessionResult completion = throwable == null ? result : this.failFlow_(throwable);
+            try {
+                job.onComplete(new SessionJob.Completion(player, completion));
+            } catch (RuntimeException ex) {
+                this.plugin_.getLogger().log(Level.SEVERE, "Failed to complete a session job callback.", ex);
+            }
+            completed.complete(completion);
+        }));
+        return completed;
     }
 
     private Throwable unwrap_(Throwable throwable) {
