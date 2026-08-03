@@ -8,7 +8,7 @@ import java.util.Objects;
 
 public record AccWardenConfig(
         String defaultLanguage,
-        @Nullable String holdWorld,
+        HoldWorld holdWorld,
         boolean playerNameAutoLinking,
         int sessionHoldTime,
         int passwordMinSize,
@@ -18,7 +18,7 @@ public record AccWardenConfig(
 
     public static final AccWardenConfig DEFAULT = new AccWardenConfig(
             "en",
-            null,
+            HoldWorld.DEFAULT,
             false,
             300,
             4,
@@ -36,13 +36,46 @@ public record AccWardenConfig(
 
         return new AccWardenConfig(
                 config.getString("defaultLanguage", DEFAULT.defaultLanguage()),
-                config.getString("holdWorld", DEFAULT.holdWorld()),
+                loadHoldWorld_(config),
                 config.getBoolean("playerNameAutoLinking", DEFAULT.playerNameAutoLinking()),
                 config.getInt("sessions.holdTime", DEFAULT.sessionHoldTime()),
                 config.getInt("password_format.min_length", DEFAULT.passwordMinSize()),
                 config.getInt("password_format.max_length", DEFAULT.passwordMaxSize()),
                 Gateway.load(securityPolicies)
         );
+    }
+
+    private static HoldWorld loadHoldWorld_(ConfigurationSection config) {
+        return HoldWorld.load(config.getConfigurationSection("hold_world"));
+    }
+
+    public record HoldWorld(
+            boolean enabled,
+            String name,
+            String dimension
+    ) {
+
+        public static final HoldWorld DEFAULT = new HoldWorld(
+                false,
+                "accwarden_hold",
+                "NORMAL"
+        );
+
+        public HoldWorld {
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(dimension, "dimension");
+        }
+
+        public static HoldWorld load(@Nullable ConfigurationSection config) {
+            if (config == null) {
+                return DEFAULT;
+            }
+            return new HoldWorld(
+                    config.getBoolean("enabled", DEFAULT.enabled()),
+                    config.getString("name", DEFAULT.name()),
+                    config.getString("dimension", DEFAULT.dimension())
+            );
+        }
     }
 
     public record Gateway(

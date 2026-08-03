@@ -20,13 +20,16 @@ import com.kntrel.mc.accwarden.platform.bedrock.JavaAndBedrockPlatformRouter;
 import com.kntrel.mc.accwarden.platform.java.JavaPlatform;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.accwarden.session.SessionService;
+import com.kntrel.mc.accwarden.world.VoidChunkGenerator;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
 import com.kntrel.mc.runical.bukkit.Runical;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.plugin.java.JavaPlugin;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.logging.Level;
 
 public final class AccWarden extends JavaPlugin {
@@ -171,15 +174,46 @@ public final class AccWarden extends JavaPlugin {
     }
 
     private @Nullable World resolveHoldWorld_() {
-        String worldName = this.CONFIG.holdWorld();
-        if (worldName == null || worldName.isBlank()) {
+        AccWardenConfig.HoldWorld config = this.CONFIG.holdWorld();
+        if (!config.enabled()) {
             return null;
         }
 
-        World world = this.getServer().getWorld(worldName);
-        if (world == null) {
+        String worldName = config.name().strip();
+        if (worldName.isEmpty()) {
             this.getLogger().warning(
-                    "The configured hold world '" + worldName + "' is not loaded. Hold-world teleporting is disabled."
+                    "The hold world is enabled, but hold_world.name is blank. Hold-world teleporting is disabled."
+            );
+            return null;
+        }
+
+        World loadedWorld = this.getServer().getWorld(worldName);
+        if (loadedWorld != null) {
+            return loadedWorld;
+        }
+
+        World.Environment environment;
+        try {
+            environment = World.Environment.valueOf(
+                    config.dimension().strip().toUpperCase(Locale.ROOT)
+            );
+        } catch (IllegalArgumentException ex) {
+            this.getLogger().warning(
+                    "Unknown hold-world dimension '" + config.dimension()
+                            + "'. Hold-world teleporting is disabled."
+            );
+            return null;
+        }
+
+        World world = WorldCreator.name(worldName)
+                .environment(environment)
+                .generateStructures(false)
+                .generator(new VoidChunkGenerator())
+                .createWorld();
+        if (world == null) {
+            this.getLogger().severe(
+                    "Failed to create or load hold world '" + worldName
+                            + "'. Hold-world teleporting is disabled."
             );
         }
         return world;

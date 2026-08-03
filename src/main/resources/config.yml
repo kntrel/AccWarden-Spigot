@@ -3,10 +3,14 @@
 #inside the ./translations folder.
 defaultLanguage: "en"
 
-#Optional world to which unauthenticated players are teleported while held.
-#They are returned to their original world's spawn after authentication.
-#Set to null or leave blank to keep players in their current world.
-holdWorld: null
+#Optional isolated void world for unauthenticated players.
+hold_world:
+  #When disabled, held players remain in their current world.
+  enabled: false
+  #Existing world to load, or new void-world directory to create.
+  name: "accwarden_hold"
+  #Bukkit world environment: NORMAL, NETHER, or THE_END.
+  dimension: "NORMAL"
 
 #If enabled, every Bedrock login will be linked through Floodgate to the offline Java UUID for its Java-side name.
 #Bedrock and Java will share the same password and payer data/progress.
