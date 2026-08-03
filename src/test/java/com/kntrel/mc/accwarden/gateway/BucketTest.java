@@ -23,7 +23,7 @@ class BucketTest {
     @Test
     void snapshotsExposeGlobalAndPerSubjectCounts() {
         MutableClock clock = new MutableClock(START);
-        ClientBucket bucket = new ClientPolicy(WINDOW, 3, 10, 10).newBucket(clock);
+        ClientBucket bucket = new ClientPolicy(WINDOW, 3, true, 10, WINDOW).newBucket(clock);
 
         bucket.record(CLIENT_A);
         clock.advance(Duration.ofSeconds(2));
@@ -45,7 +45,7 @@ class BucketTest {
     @Test
     void eventsDisappearAsTheWindowMovesIncludingAtItsBoundary() {
         MutableClock clock = new MutableClock(START);
-        ClientBucket bucket = new ClientPolicy(WINDOW, 2, 10, 10).newBucket(clock);
+        ClientBucket bucket = new ClientPolicy(WINDOW, 2, true, 10, WINDOW).newBucket(clock);
 
         bucket.record(CLIENT_A);
         clock.advance(Duration.ofSeconds(2));

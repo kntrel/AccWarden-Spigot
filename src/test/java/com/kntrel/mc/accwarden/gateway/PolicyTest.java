@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -33,7 +32,7 @@ class PolicyTest {
     @Test
     void loginAttemptLimitIsSpecificToTheAccountAndClientPair() {
         MutableClock clock = new MutableClock(START);
-        LoginPolicy policy = new LoginPolicy(WINDOW, 100, 2, 10);
+        LoginPolicy policy = new LoginPolicy(WINDOW, 100, true, 2, WINDOW);
         LoginBucket bucket = policy.newBucket(clock);
         LoginRequest aliceFromA = request_("alice", CLIENT_A);
 
@@ -56,10 +55,12 @@ class PolicyTest {
     @Test
     void failedLoginLimitSpansAccountsForTheSameClient() {
         MutableClock clock = new MutableClock(START);
-        LoginPolicy policy = new LoginPolicy(WINDOW, 100, 10, 2);
+        Duration penalty = Duration.ofSeconds(4);
+        LoginPolicy policy = new LoginPolicy(WINDOW, 100, true, 2, penalty);
         LoginBucket bucket = policy.newBucket(clock);
 
         bucket.recordFailedLogin(request_("alice", CLIENT_A));
+        clock.advance(Duration.ofSeconds(2));
         bucket.recordFailedLogin(request_("bob", CLIENT_A));
 
         LoginFinding finding = assertInstanceOf(
@@ -70,13 +71,27 @@ class PolicyTest {
         assertEquals(LoginFinding.Threshold.CLIENT_FAILED_LOGINS, finding.threshold());
         assertEquals(2, finding.count());
         assertEquals(2, finding.limit());
+        assertEquals(START.plusSeconds(6), finding.retryAt());
         assertTrue(policy.evaluate(request_("charlie", CLIENT_B), bucket).isEmpty());
     }
 
     @Test
-    void clientPolicyLeavesBucketCapacityToTheGatekeeper() {
+    void disabledLoginAttemptLimitIgnoresAttemptsAndFailures() {
         MutableClock clock = new MutableClock(START);
-        ClientPolicy policy = new ClientPolicy(WINDOW, 2, 10, 10);
+        LoginPolicy policy = new LoginPolicy(WINDOW, 100, false, 1, WINDOW);
+        LoginBucket bucket = policy.newBucket(clock);
+        LoginRequest request = request_("alice", CLIENT_A);
+
+        bucket.record(request);
+        bucket.recordFailedLogin(request);
+
+        assertTrue(policy.evaluate(request, bucket).isEmpty());
+    }
+
+    @Test
+    void disabledClientAttemptLimitLeavesCapacityToTheGatekeeper() {
+        MutableClock clock = new MutableClock(START);
+        ClientPolicy policy = new ClientPolicy(WINDOW, 2, false, 1, WINDOW);
         ClientBucket bucket = policy.newBucket(clock);
         bucket.record(CLIENT_A);
         bucket.record(CLIENT_B);
@@ -85,14 +100,22 @@ class PolicyTest {
     }
 
     @Test
-    void loginBucketUsesOneCapacityForAttemptsAndFailures() {
+    void loginBucketIsEffectivelyUnboundedForAttemptsAndFailures() {
         MutableClock clock = new MutableClock(START);
-        LoginPolicy policy = new LoginPolicy(WINDOW, 2, 10, 10);
+        LoginPolicy policy = new LoginPolicy(
+                WINDOW,
+                Integer.MAX_VALUE,
+                false,
+                1,
+                WINDOW
+        );
         LoginBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
         bucket.recordFailedLogin(request_("bob", CLIENT_B));
 
         assertEquals(2, bucket.size());
+        assertEquals(WINDOW, bucket.window());
+        assertEquals(Integer.MAX_VALUE, bucket.maxRecords());
         assertTrue(policy.evaluate(request_("charlie", client_(3)), bucket).isEmpty());
     }
 
@@ -102,6 +125,9 @@ class PolicyTest {
         AccountPolicy policy = new AccountPolicy(WINDOW, 10, 1);
         AccountBucket bucket = policy.newBucket(clock);
         bucket.record(request_("alice", CLIENT_A));
+
+        assertEquals(WINDOW, bucket.window());
+        assertEquals(10, bucket.maxRecords());
 
         MultiClientAccountFinding finding = assertInstanceOf(
                 MultiClientAccountFinding.class,
@@ -114,34 +140,29 @@ class PolicyTest {
     }
 
     @Test
-    void clientPolicyReportsEverySimultaneousFindingWithItsOwnRetryTime() {
+    void clientPolicyAppliesItsConfiguredPenalty() {
         MutableClock clock = new MutableClock(START);
-        ClientPolicy policy = new ClientPolicy(WINDOW, 10, 2, 3);
+        ClientPolicy policy = new ClientPolicy(
+                WINDOW,
+                10,
+                true,
+                2,
+                Duration.ofSeconds(4)
+        );
         ClientBucket bucket = policy.newBucket(clock);
         bucket.record(CLIENT_A);
         clock.advance(Duration.ofSeconds(2));
-        bucket.record(CLIENT_B);
-        bucket.record(CLIENT_B);
+        bucket.record(CLIENT_A);
 
-        List<ClientFinding> findings = policy.evaluate(CLIENT_B, bucket);
-        ClientFinding clientLimit = finding_(
-                findings,
-                ClientFinding.Threshold.CLIENT_CONNECTIONS
-        );
-        ClientFinding globalLimit = finding_(
-                findings,
-                ClientFinding.Threshold.GLOBAL_CONNECTIONS
-        );
+        ClientFinding finding = policy.evaluate(CLIENT_A, bucket).getFirst();
 
-        assertEquals(2, findings.size());
-        assertEquals(START.plusSeconds(12), clientLimit.retryAt());
-        assertEquals(START.plusSeconds(10), globalLimit.retryAt());
+        assertEquals(START.plusSeconds(6), finding.retryAt());
     }
 
     @Test
     void policyCreatesConfiguredButIndependentBuckets() {
         MutableClock clock = new MutableClock(START);
-        ClientPolicy policy = new ClientPolicy(WINDOW, 2, 10, 10);
+        ClientPolicy policy = new ClientPolicy(WINDOW, 2, true, 10, WINDOW);
         ClientBucket first = policy.newBucket(clock);
         ClientBucket second = policy.newBucket(clock);
 
@@ -157,16 +178,6 @@ class PolicyTest {
     @Test
     void loginRequestsRequireAnAccountId() {
         assertThrows(NullPointerException.class, () -> new LoginRequest(null, CLIENT_A));
-    }
-
-    private static ClientFinding finding_(
-            List<ClientFinding> findings,
-            ClientFinding.Threshold threshold
-    ) {
-        return findings.stream()
-                .filter(finding -> finding.threshold() == threshold)
-                .findFirst()
-                .orElseThrow();
     }
 
     private static LoginRequest request_(String account, NetworkKey client) {

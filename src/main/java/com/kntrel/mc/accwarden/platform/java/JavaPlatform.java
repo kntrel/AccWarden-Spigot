@@ -1,6 +1,7 @@
 package com.kntrel.mc.accwarden.platform.java;
 
 import com.kntrel.mc.accwarden.AccWarden;
+import com.kntrel.mc.accwarden.AccWardenConfig;
 import com.kntrel.mc.accwarden.form.FormRenderer;
 import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.platform.PlatformKey;
@@ -18,9 +19,16 @@ public final class JavaPlatform implements Platform {
         Objects.requireNonNull(plugin, "plugin");
         this.formRenderer_ = new JavaFormRenderer(plugin);
         Translator translator = plugin.getRunical();
+        AccWardenConfig.Gateway.ClientLoginLimit attemptLimit = plugin
+                .getAccWardenConfig()
+                .securityPolicies()
+                .clientLoginLimit();
         this.views_ = new JavaViews(
                 translator.getChild("registration_form").getChild(PlatformKey.JAVA.value()),
-                translator.getChild("authentication_form").getChild(PlatformKey.JAVA.value())
+                translator.getChild("authentication_form").getChild(PlatformKey.JAVA.value()),
+                attemptLimit.enabled(),
+                attemptLimit.odd(),
+                attemptLimit.warn()
         );
     }
 

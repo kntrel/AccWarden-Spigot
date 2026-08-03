@@ -166,10 +166,7 @@ public final class SessionService {
                         player,
                         platform,
                         account,
-                        AuthenticationViewState.failed(
-                                state.kind(),
-                                new AuthenticationViewState.Failure.IncorrectPassword()
-                        )
+                        state.nextIncorrectPassword()
                 );
             }
             case ACCOUNT_LOCKED -> {

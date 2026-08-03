@@ -197,7 +197,9 @@ public final class AccwarderGatekeeper {
         Finding max = null;
 
         for (Finding f : findings) {
-            if (f instanceof MultiClientAccountFinding) { continue; }
+            if (f instanceof MultiClientAccountFinding) {
+                continue;
+            }
             if (max == null || f.retryAt().isAfter(max.retryAt())) {
                 max = f;
             }

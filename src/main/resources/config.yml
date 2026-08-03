@@ -21,19 +21,40 @@ sessions:
   #Cached sessions are bound to the edition they authenticated from and never transfer between Java and Bedrock.
   holdTime: 300
 
-failed_login_count:
-  #If true, a player's account will be locked and access to the server will be denied after entering the wrong
-  #password a certain amount of times defined by the settings that follow.
-  accountLock: false
-  #How many failed login attempts to star showing the Odd amount fo retried error message.
-  odd: 3
-  #How many failed login attempts over the above setting to warn the player about the account being locked.
-  #accountLock must be true.
-  warn: 3
-  #How many failed login attempts over the above setting to actually lock the account.
-  #accountLock must be true. Must be grater than 0.
-  lock: 3
-
 password_format:
   min_length: 4
   max_length: 12
+
+#Rate limits and abuse detection for connections and account logins.
+#Durations are measured in seconds. All configured values must be greater than zero.
+security_policies:
+  #Distinct networks that trigger an advisory warning for one account.
+  multi_client_account_warning_count: 5
+
+  client_connections_limit:
+    #When false, only the global connections limit can throttle connections.
+    enabled: true
+    #How long connection activity remains in the client and account histories.
+    expiration_seconds: 60
+    #Accepted connections allowed from one network during the expiration window.
+    limit: 20
+    #Connections accepted across all networks during the expiration window.
+    #This is also the maximum size of the client and account histories.
+    global_limit: 1000
+    #How long the client remains throttled after reaching the limit.
+    penalty_seconds: 300
+
+  client_login_limit:
+    #When false, this policy does not limit login attempts.
+    enabled: true
+    #How long login requests and incorrect-password attempts remain in history.
+    expiration_seconds: 600
+    #Failed-password count that starts showing unusual-activity feedback.
+    odd: 3
+    #Failed-password count that warns about imminent network throttling.
+    warn: 4
+    #Login requests per account/network pair, or failed passwords per network,
+    #allowed during the expiration window before the network is throttled.
+    limit: 5
+    #How long the network remains throttled after reaching the limit.
+    penalty_seconds: 1200

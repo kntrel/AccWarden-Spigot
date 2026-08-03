@@ -50,7 +50,7 @@ authentication_form:
       wrong_password:
         fine: "Wrong password!"
         odd: "Wrong password! Contact the admins if you're having trouble logging in."
-        warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+        warn: "Wrong password! Your network is about to be temporarily throttled."
       invalid_input:
         password_required: "Password is required."
         no_match: "Passwords do not match!"
@@ -73,7 +73,7 @@ authentication_form:
       wrong_password:
         fine: "Wrong password!"
         odd: "Wrong password! Contact the admins if you're having trouble logging in."
-        warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+        warn: "Wrong password! Your network is about to be temporarily throttled."
       invalid_input:
         password_required: "Password is required."
         no_match: "Passwords do not match!"
@@ -142,7 +142,7 @@ error:
   incorrect_password:
     fine: "Wrong password!"
     odd: "Wrong password! Contact the admins if you're having trouble logging in."
-    warn: "Wrong password! You're about to lock this account! Contact the admins if you've forgot your password."
+    warn: "Wrong password! Your network is about to be temporarily throttled."
 
 info:
   logged_in: "Logged in!"

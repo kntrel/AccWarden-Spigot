@@ -6,7 +6,7 @@ import java.util.List;
 public interface Policy<T, B extends Bucket<T>, F extends Finding> {
 
     /**
-     * Creates fresh runtime state configured for this policy.
+     * Creates fresh runtime state configured by this policy.
      * Ownership of the returned bucket belongs to the caller.
      */
     B newBucket(Clock clock);

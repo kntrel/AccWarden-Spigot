@@ -17,7 +17,6 @@ public record ClientFinding(
     }
 
     public enum Threshold {
-        CLIENT_CONNECTIONS,
-        GLOBAL_CONNECTIONS
+        CLIENT_CONNECTIONS
     }
 }

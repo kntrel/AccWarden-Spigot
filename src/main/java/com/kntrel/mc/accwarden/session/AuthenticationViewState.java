@@ -42,6 +42,15 @@ public record AuthenticationViewState(Kind kind, Optional<Failure> failure) {
         return this.kind().equals(Kind.PLATFORM_FIRST_TIME);
     }
 
+    public AuthenticationViewState nextIncorrectPassword() {
+        int previousAttempt = this.failure()
+                .filter(Failure.IncorrectPassword.class::isInstance)
+                .map(Failure.IncorrectPassword.class::cast)
+                .map(Failure.IncorrectPassword::attempt)
+                .orElse(0);
+        return failed(this.kind(), new Failure.IncorrectPassword(previousAttempt + 1));
+    }
+
     public enum Kind {
         REGULAR,
         PLATFORM_FIRST_TIME
@@ -49,7 +58,14 @@ public record AuthenticationViewState(Kind kind, Optional<Failure> failure) {
 
     public sealed interface Failure {
 
-        record IncorrectPassword() implements Failure {}
+        record IncorrectPassword(int attempt) implements Failure {
+
+            public IncorrectPassword {
+                if (attempt < 1) {
+                    throw new IllegalArgumentException("Failed attempt must be at least 1.");
+                }
+            }
+        }
 
         record AccountLocked() implements Failure {}
 

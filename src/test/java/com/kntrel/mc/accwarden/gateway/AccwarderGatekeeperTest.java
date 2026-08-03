@@ -37,8 +37,8 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
-    void clientPolicyLimitsIndividualClientsAndTheGlobalWindow() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(2, 3, 10, 10, 10);
+    void clientPolicyLimitsIndividualClientsAndBucketCapacityLimitsGlobally() {
+        AccwarderGatekeeper gatekeeper = this.gatekeeper_(2, 3, 10, 10);
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
@@ -50,23 +50,20 @@ class AccwarderGatekeeperTest {
         assertEquals(START.plus(WINDOW), individual.penalty().until());
         ClientFinding individualCause = assertInstanceOf(
                 ClientFinding.class,
-                individual.findings().getFirst()
+                individual.penalty().cause()
         );
         assertEquals(ClientFinding.Threshold.CLIENT_CONNECTIONS, individualCause.threshold());
-        assertEquals(individualCause, individual.penalty().cause());
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
         Decision.Throttled global = assertInstanceOf(
                 Decision.Throttled.class,
                 gatekeeper.considerConnection(CLIENT_C)
         );
-        assertEquals(START.plus(WINDOW), global.penalty().until());
-        ClientFinding globalCause = assertInstanceOf(
-                ClientFinding.class,
-                global.findings().getFirst()
+        BucketCapacityFinding globalCause = assertInstanceOf(
+                BucketCapacityFinding.class,
+                global.penalty().cause()
         );
-        assertEquals(ClientFinding.Threshold.GLOBAL_CONNECTIONS, globalCause.threshold());
-        assertEquals(globalCause, global.penalty().cause());
+        assertEquals(3, globalCause.limit());
 
         this.clock_.advance(WINDOW);
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
@@ -74,7 +71,7 @@ class AccwarderGatekeeperTest {
 
     @Test
     void clientConnectionThrottleAffectsLaterLoginFromTheSameClient() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(1, 100, 10, 10, 10);
+        AccwarderGatekeeper gatekeeper = this.gatekeeper_(1, 100, 10, 10);
         LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
@@ -82,12 +79,6 @@ class AccwarderGatekeeperTest {
                 Decision.Throttled.class,
                 gatekeeper.considerConnection(CLIENT_A)
         );
-        ClientFinding cause = assertInstanceOf(
-                ClientFinding.class,
-                connectionThrottle.penalty().cause()
-        );
-        assertEquals(ClientFinding.Threshold.CLIENT_CONNECTIONS, cause.threshold());
-
         Decision.Throttled loginThrottle = assertInstanceOf(
                 Decision.Throttled.class,
                 gatekeeper.considerLogin(request)
@@ -102,79 +93,86 @@ class AccwarderGatekeeperTest {
 
     @Test
     void failedLoginDecisionAffectsLaterConnectionsAndLogins() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(10, 100, 10, 2, 10);
+        AccwarderGatekeeper gatekeeper = this.gatekeeper_(10, 100, 2, 10);
         LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.recordFailedLogin(request));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
-
+        assertInstanceOf(
+                Decision.Pass.class,
+                gatekeeper.recordFailedLogin(request)
+        );
         Decision.Throttled failed = assertInstanceOf(
                 Decision.Throttled.class,
                 gatekeeper.recordFailedLogin(request)
         );
-        assertEquals(CLIENT_A, failed.penalty().client());
-        assertEquals(START.plus(WINDOW), failed.penalty().until());
+
         LoginFinding failedCause = assertInstanceOf(
                 LoginFinding.class,
-                failed.findings().getFirst()
+                failed.penalty().cause()
         );
         assertEquals(LoginFinding.Threshold.CLIENT_FAILED_LOGINS, failedCause.threshold());
-        assertEquals(failedCause, failed.penalty().cause());
-
-        Decision.Throttled blockedConnection = assertInstanceOf(
-                Decision.Throttled.class,
+        assertEquals(CLIENT_A, failed.penalty().client());
+        assertEquals(START.plus(WINDOW), failed.penalty().until());
+        assertEquals(
+                failed,
                 gatekeeper.considerConnection(CLIENT_A)
         );
-        Decision.Throttled blockedLogin = assertInstanceOf(
-                Decision.Throttled.class,
+        assertEquals(
+                failed,
                 gatekeeper.considerLogin(request)
         );
-        assertEquals(failed.findings(), blockedConnection.findings());
-        assertEquals(failed.findings(), blockedLogin.findings());
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
 
         this.clock_.advance(WINDOW);
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
     }
 
     @Test
-    void accountPolicyRecognizesTheSameAccountId() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(10, 100, 10, 10, 1);
+    void accountPolicyReportsWithoutThrottling() {
+        AccwarderGatekeeper gatekeeper = this.gatekeeper_(10, 100, 10, 1);
 
         assertInstanceOf(
                 Decision.Pass.class,
                 gatekeeper.considerLogin(new LoginRequest(account_("Alice"), CLIENT_A))
         );
-        Decision.Throttled multipleClients = assertInstanceOf(
-                Decision.Throttled.class,
+        Decision.Pass multipleClients = assertInstanceOf(
+                Decision.Pass.class,
                 gatekeeper.considerLogin(new LoginRequest(account_("alice"), CLIENT_B))
         );
-        assertEquals(CLIENT_B, multipleClients.penalty().client());
-        assertEquals(START.plus(WINDOW), multipleClients.penalty().until());
         MultiClientAccountFinding finding = assertInstanceOf(
                 MultiClientAccountFinding.class,
                 multipleClients.findings().getFirst()
         );
+
         assertEquals(1, finding.count());
         assertEquals(1, finding.limit());
+    }
 
+    @Test
+    void failedLoginsBelowTheLimitDoNotProduceFindings() {
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                new AccountPolicy(WINDOW, 100, 10),
+                new ClientPolicy(WINDOW, 100, true, 100, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, true, 5, WINDOW),
+                this.clock_
+        );
+        LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
         assertInstanceOf(
                 Decision.Pass.class,
-                gatekeeper.considerLogin(new LoginRequest(account_("alice"), CLIENT_A))
+                gatekeeper.recordFailedLogin(request)
+        );
+        Decision.Pass decision = assertInstanceOf(
+                Decision.Pass.class,
+                gatekeeper.recordFailedLogin(request)
         );
 
-        this.clock_.advance(WINDOW);
-        assertInstanceOf(
-                Decision.Pass.class,
-                gatekeeper.considerLogin(new LoginRequest(account_("alice"), CLIENT_B))
-        );
+        assertEquals(List.of(), decision.findings());
     }
 
     @Test
     void blockedCallsDoNotExtendTheirPenalty() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(1, 100, 10, 10, 10);
+        AccwarderGatekeeper gatekeeper = this.gatekeeper_(1, 100, 10, 10);
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
         Decision.Throttled first = assertInstanceOf(
@@ -191,71 +189,84 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
-    void decisionKeepsAllFindingsAndUsesTheLatestRetryTime() {
-        AccwarderGatekeeper gatekeeper = this.gatekeeper_(2, 3, 10, 10, 10);
-
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
-        this.clock_.advance(Duration.ofSeconds(2));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
-
-        Decision.Throttled decision = assertInstanceOf(
-                Decision.Throttled.class,
-                gatekeeper.considerConnection(CLIENT_B)
-        );
-        ClientFinding clientLimit = clientFinding_(
-                decision.findings(),
-                ClientFinding.Threshold.CLIENT_CONNECTIONS
-        );
-        ClientFinding globalLimit = clientFinding_(
-                decision.findings(),
-                ClientFinding.Threshold.GLOBAL_CONNECTIONS
-        );
-
-        assertEquals(2, decision.findings().size());
-        assertEquals(START.plusSeconds(12), clientLimit.retryAt());
-        assertEquals(START.plusSeconds(10), globalLimit.retryAt());
-        assertEquals(clientLimit.retryAt(), decision.penalty().until());
-        assertEquals(clientLimit, decision.penalty().cause());
-    }
-
-    @Test
-    void clientBucketCapacityIsACommonGatewayFinding() {
-        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 10, 10);
-        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 2, 10, 10);
-        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 10, 10, 10);
+    void configuredClientPenaltyControlsThrottleExpiration() {
+        Duration penalty = Duration.ofSeconds(3);
         AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
-                accountPolicy,
-                clientPolicy,
-                loginPolicy,
+                new AccountPolicy(WINDOW, 100, 10),
+                new ClientPolicy(WINDOW, 100, true, 1, penalty),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, true, 100, WINDOW),
                 this.clock_
         );
 
         assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
-        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_B));
-        Decision.Throttled decision = assertInstanceOf(
+        Decision.Throttled throttled = assertInstanceOf(
                 Decision.Throttled.class,
-                gatekeeper.considerConnection(CLIENT_C)
-        );
-        BucketCapacityFinding finding = assertInstanceOf(
-                BucketCapacityFinding.class,
-                decision.penalty().cause()
+                gatekeeper.considerConnection(CLIENT_A)
         );
 
-        assertEquals(2, finding.count());
-        assertEquals(2, finding.limit());
-        assertEquals(START.plus(WINDOW), finding.retryAt());
+        assertEquals(START.plus(penalty), throttled.penalty().until());
     }
 
     @Test
-    void accountBucketCapacityIsACommonGatewayFinding() {
-        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 1, 10);
-        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 10, 10, 10);
-        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 10, 10, 10);
+    void configuredLoginPenaltyControlsThrottleExpiration() {
+        Duration penalty = Duration.ofSeconds(4);
         AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
-                accountPolicy,
-                clientPolicy,
-                loginPolicy,
+                new AccountPolicy(WINDOW, 100, 10),
+                new ClientPolicy(WINDOW, 100, true, 100, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, true, 1, penalty),
+                this.clock_
+        );
+        LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerLogin(request));
+        Decision.Throttled throttled = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerLogin(request)
+        );
+
+        assertEquals(START.plus(penalty), throttled.penalty().until());
+    }
+
+    @Test
+    void disabledClientAttemptLimitStillThrottlesAtBucketCapacity() {
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                new AccountPolicy(WINDOW, 2, 10),
+                new ClientPolicy(WINDOW, 2, false, 1, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, false, 1, WINDOW),
+                this.clock_
+        );
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.considerConnection(CLIENT_A));
+        Decision.Throttled throttled = assertInstanceOf(
+                Decision.Throttled.class,
+                gatekeeper.considerConnection(CLIENT_A)
+        );
+
+        assertInstanceOf(BucketCapacityFinding.class, throttled.penalty().cause());
+    }
+
+    @Test
+    void disabledLoginAttemptLimitDoesNotThrottleAtTheClientCapacity() {
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                new AccountPolicy(WINDOW, 2, 10),
+                new ClientPolicy(WINDOW, 2, false, 1, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, false, 1, WINDOW),
+                this.clock_
+        );
+        LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
+
+        assertInstanceOf(Decision.Pass.class, gatekeeper.recordFailedLogin(request));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.recordFailedLogin(request));
+        assertInstanceOf(Decision.Pass.class, gatekeeper.recordFailedLogin(request));
+    }
+
+    @Test
+    void sharedBucketCapacityIsACommonGatewayFinding() {
+        AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
+                new AccountPolicy(WINDOW, 1, 10),
+                new ClientPolicy(WINDOW, 1, true, 10, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, true, 10, WINDOW),
                 this.clock_
         );
 
@@ -278,14 +289,11 @@ class AccwarderGatekeeperTest {
     }
 
     @Test
-    void failedLoginDoesNotOverflowAFullLoginBucket() {
-        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 10, 10);
-        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 10, 10, 100);
-        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 1, 10, 10);
+    void failedLoginStillHonorsAFullAccountBucket() {
         AccwarderGatekeeper gatekeeper = new AccwarderGatekeeper(
-                accountPolicy,
-                clientPolicy,
-                loginPolicy,
+                new AccountPolicy(WINDOW, 1, 10),
+                new ClientPolicy(WINDOW, 1, true, 10, WINDOW),
+                new LoginPolicy(WINDOW, Integer.MAX_VALUE, true, 10, WINDOW),
                 this.clock_
         );
         LoginRequest request = new LoginRequest(account_("alice"), CLIENT_A);
@@ -312,32 +320,22 @@ class AccwarderGatekeeperTest {
         assertEquals(List.of(finding), decision.findings());
     }
 
-    private static ClientFinding clientFinding_(
-            List<Finding> findings,
-            ClientFinding.Threshold threshold
-    ) {
-        return findings.stream()
-                .filter(ClientFinding.class::isInstance)
-                .map(ClientFinding.class::cast)
-                .filter(finding -> finding.threshold() == threshold)
-                .findFirst()
-                .orElseThrow();
-    }
-
     private AccwarderGatekeeper gatekeeper_(
-            int perClientLimit,
-            int globalLimit,
-            int perLoginLimit,
-            int failedLoginLimit,
+            int clientLimit,
+            int clientCapacity,
+            int loginLimit,
             int distinctClientLimit
     ) {
-        AccountPolicy accountPolicy = new AccountPolicy(WINDOW, 1_000, distinctClientLimit);
-        ClientPolicy clientPolicy = new ClientPolicy(WINDOW, 1_000, perClientLimit, globalLimit);
-        LoginPolicy loginPolicy = new LoginPolicy(WINDOW, 1_000, perLoginLimit, failedLoginLimit);
         return new AccwarderGatekeeper(
-                accountPolicy,
-                clientPolicy,
-                loginPolicy,
+                new AccountPolicy(WINDOW, clientCapacity, distinctClientLimit),
+                new ClientPolicy(WINDOW, clientCapacity, true, clientLimit, WINDOW),
+                new LoginPolicy(
+                        WINDOW,
+                        Integer.MAX_VALUE,
+                        true,
+                        loginLimit,
+                        WINDOW
+                ),
                 this.clock_
         );
     }

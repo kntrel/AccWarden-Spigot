@@ -15,9 +15,6 @@ import com.kntrel.mc.accwarden.platform.JavaOnlyPlatformRouter;
 import com.kntrel.mc.accwarden.platform.Platform;
 import com.kntrel.mc.accwarden.platform.PlatformRouter;
 import com.kntrel.mc.accwarden.platform.bedrock.AutoNameLinker;
-import com.kntrel.mc.accwarden.platform.bedrock.BedrockPlatform;
-import com.kntrel.mc.accwarden.platform.bedrock.JavaAndBedrockPlatformRouter;
-import com.kntrel.mc.accwarden.platform.java.JavaPlatform;
 import com.kntrel.mc.accwarden.session.SessionHolder;
 import com.kntrel.mc.accwarden.session.SessionService;
 import com.kntrel.mc.commvoker.spigot.Commvoker;
@@ -27,14 +24,11 @@ import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.util.logging.Level;
 
 public final class AccWarden extends JavaPlugin {
 
     private static final String TRANSLATIONS_DIRECTORY = "translations";
-    private static final Duration GATEKEEPING_WINDOW = Duration.ofMinutes(1);
-    private static final int GATEKEEPING_CAPACITY = 10_000;
 
     //FIELDS
     public AccWardenConfig CONFIG = AccWardenConfig.DEFAULT;
@@ -146,10 +140,30 @@ public final class AccWarden extends JavaPlugin {
     }
 
     private AccwarderGatekeeper createGatekeeper_() {
+        AccWardenConfig.Gateway config = this.CONFIG.securityPolicies();
+        AccWardenConfig.Gateway.ClientConnectionsLimit connections =
+                config.clientConnectionsLimit();
+        AccWardenConfig.Gateway.ClientLoginLimit logins = config.clientLoginLimit();
         return new AccwarderGatekeeper(
-                new AccountPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 5),
-                new ClientPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 10, 1_000),
-                new LoginPolicy(GATEKEEPING_WINDOW, GATEKEEPING_CAPACITY, 5, 5)
+                new AccountPolicy(
+                        connections.expiration(),
+                        connections.globalLimit(),
+                        config.multiClientAccountWarningCount()
+                ),
+                new ClientPolicy(
+                        connections.expiration(),
+                        connections.globalLimit(),
+                        connections.enabled(),
+                        connections.limit(),
+                        connections.penalty()
+                ),
+                new LoginPolicy(
+                        logins.expiration(),
+                        Integer.MAX_VALUE,
+                        logins.enabled(),
+                        logins.limit(),
+                        logins.penalty()
+                )
         );
     }
 

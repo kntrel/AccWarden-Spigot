@@ -9,11 +9,15 @@ final class PolicySupport {
     private PolicySupport() {}
 
     static Duration requirePositiveWindow(Duration window) {
-        Objects.requireNonNull(window, "window");
-        if (window.isZero() || window.isNegative()) {
-            throw new IllegalArgumentException("Policy window must be positive.");
+        return requirePositiveDuration(window, "window");
+    }
+
+    static Duration requirePositiveDuration(Duration duration, String name) {
+        Objects.requireNonNull(duration, name);
+        if (duration.isZero() || duration.isNegative()) {
+            throw new IllegalArgumentException("Policy " + name + " must be positive.");
         }
-        return window;
+        return duration;
     }
 
     static int requirePositiveLimit(int limit, String name) {

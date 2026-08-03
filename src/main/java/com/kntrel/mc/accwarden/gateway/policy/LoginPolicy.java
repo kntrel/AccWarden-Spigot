@@ -10,22 +10,22 @@ import java.util.Objects;
 
 public final class LoginPolicy implements Policy<LoginRequest, LoginBucket, LoginFinding> {
 
-    private final Duration window_;
-    private final int maxRecords_, perLoginLimit_, failedLoginsPerClientLimit_;
+    private final Duration window_, penalty_;
+    private final int maxRecords_, attemptLimit_;
+    private final boolean attemptLimitEnabled_;
 
     public LoginPolicy(
             Duration window,
             int maxRecords,
-            int perLoginLimit,
-            int failedLoginsPerClientLimit
+            boolean attemptLimitEnabled,
+            int attemptLimit,
+            Duration penalty
     ) {
         this.window_ = PolicySupport.requirePositiveWindow(window);
         this.maxRecords_ = PolicySupport.requirePositiveLimit(maxRecords, "maxRecords");
-        this.perLoginLimit_ = PolicySupport.requirePositiveLimit(perLoginLimit, "perLoginLimit");
-        this.failedLoginsPerClientLimit_ = PolicySupport.requirePositiveLimit(
-                failedLoginsPerClientLimit,
-                "failedLoginsPerClientLimit"
-        );
+        this.attemptLimitEnabled_ = attemptLimitEnabled;
+        this.attemptLimit_ = PolicySupport.requirePositiveLimit(attemptLimit, "attemptLimit");
+        this.penalty_ = PolicySupport.requirePositiveDuration(penalty, "penalty");
     }
 
     @Override
@@ -38,22 +38,27 @@ public final class LoginPolicy implements Policy<LoginRequest, LoginBucket, Logi
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(bucket, "bucket");
 
+        if (!this.attemptLimitEnabled_) {
+            return List.of();
+        }
+
         Bucket.Snapshot loginSnapshot = bucket.snapshot(request);
         Bucket.Snapshot failureSnapshot = bucket.failedLoginSnapshot(request.network());
         List<LoginFinding> findings = new ArrayList<>(2);
-        if (loginSnapshot.subjectCount() >= this.perLoginLimit_) {
+        if (loginSnapshot.subjectCount() >= this.attemptLimit_) {
             findings.add(new LoginFinding(
                     loginSnapshot.subjectCount(),
-                    this.perLoginLimit_,
-                    loginSnapshot.nextSubjectExpiration().orElseThrow(),
+                    this.attemptLimit_,
+                    loginSnapshot.observedAt().plus(this.penalty_),
                     LoginFinding.Threshold.ACCOUNT_CLIENT_ATTEMPTS
             ));
         }
-        if (failureSnapshot.subjectCount() >= this.failedLoginsPerClientLimit_) {
+
+        if (failureSnapshot.subjectCount() >= this.attemptLimit_) {
             findings.add(new LoginFinding(
                     failureSnapshot.subjectCount(),
-                    this.failedLoginsPerClientLimit_,
-                    failureSnapshot.nextSubjectExpiration().orElseThrow(),
+                    this.attemptLimit_,
+                    failureSnapshot.observedAt().plus(this.penalty_),
                     LoginFinding.Threshold.CLIENT_FAILED_LOGINS
             ));
         }

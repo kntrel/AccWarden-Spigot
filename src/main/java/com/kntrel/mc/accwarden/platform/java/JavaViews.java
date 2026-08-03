@@ -24,10 +24,21 @@ final class JavaViews implements PlatformViews {
 
     private final Translator registrationTranslator_;
     private final Translator authenticationTranslator_;
+    private final boolean attemptLimitEnabled_;
+    private final int oddAttempt_, warnAttempt_;
 
-    JavaViews(Translator registrationTranslator, Translator authenticationTranslator) {
+    JavaViews(
+            Translator registrationTranslator,
+            Translator authenticationTranslator,
+            boolean attemptLimitEnabled,
+            int oddAttempt,
+            int warnAttempt
+    ) {
         this.registrationTranslator_ = Objects.requireNonNull(registrationTranslator, "registrationTranslator");
         this.authenticationTranslator_ = Objects.requireNonNull(authenticationTranslator, "authenticationTranslator");
+        this.attemptLimitEnabled_ = attemptLimitEnabled;
+        this.oddAttempt_ = oddAttempt;
+        this.warnAttempt_ = warnAttempt;
     }
 
     @Override
@@ -114,8 +125,8 @@ final class JavaViews implements PlatformViews {
 
     private String authenticationFailure_(Player player, AuthenticationViewState.Failure failure) {
         return switch (failure) {
-            case AuthenticationViewState.Failure.IncorrectPassword _ ->
-                    this.authTranslate_(player, "error.wrong_password.fine", "Wrong password!");
+            case AuthenticationViewState.Failure.IncorrectPassword incorrect ->
+                    this.incorrectPassword_(player, incorrect.attempt());
             case AuthenticationViewState.Failure.AccountLocked _ ->
                     this.authTranslate_(player, "error.account_locked", "Your account has been locked.");
             case AuthenticationViewState.Failure.AccountNotFound _ ->
@@ -129,6 +140,18 @@ final class JavaViews implements PlatformViews {
         return translator.translate(player, key)
                 .orDefault(fallback)
                 .message();
+    }
+    private String incorrectPassword_(Player player, int attempt) {
+        String level = "fine";
+        String fallback = "Wrong password!";
+        if (this.attemptLimitEnabled_ && attempt >= this.warnAttempt_) {
+            level = "warn";
+            fallback = "Wrong password! Your network is about to be temporarily throttled.";
+        } else if (attempt >= this.oddAttempt_) {
+            level = "odd";
+            fallback = "Wrong password! Contact the admins if you're having trouble logging in.";
+        }
+        return this.authTranslate_(player, "error.wrong_password." + level, fallback);
     }
     private String authTranslate_(Player player, String key, String fallback) {
         return this.translate_(this.authenticationTranslator_, player, key, fallback);
