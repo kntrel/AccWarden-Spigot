@@ -121,14 +121,32 @@ command:
   changePassword:
     success: "Your password has been changed."
 
-error:
-  kicked:
-    not_registered: "You must register with a password to play in this server."
-    not_logged: "You must enter your password to play."
-    throttled: "Too many authentication attempts. Please try again later."
-    locked: "Your account has been locked."
-    auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
+kicked_message:
+  not_registered: "You must register with a password to play in this server."
+  not_logged: "You must enter your password to play."
+  throttled:
+    connection_attempts: "You have made too many connection attempts. Please wait {remaining_time} before trying again."
+    login_attempts: "You have made too many login attempts. Please wait {remaining_time} before trying again."
+    global_limit: "The server is experiencing heavy traffic. Please wait {remaining_time} before trying again."
+  locked: "Your account has been locked."
+  auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
 
+time_format:
+  unit:
+    hour:
+      one: "{value} hour"
+      other: "{value} hours"
+    minute:
+      one: "{value} minute"
+      other: "{value} minutes"
+    second:
+      one: "{value} second"
+      other: "{value} seconds"
+  join:
+    two: "{first} and {second}"
+    three: "{first}, {second} and {third}"
+
+error:
   not_allowed:
     send_message: "You're not allowed to send messages until logged in."
     issue_command: "You're not allowed issue commands until logged in."

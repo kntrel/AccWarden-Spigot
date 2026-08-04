@@ -221,7 +221,10 @@ public final class AccWarden extends JavaPlugin {
 
     private void startAutoNameLinker_() {
         try {
-            this.autoNameLinker_ = new AutoNameLinker(this, this.runical_.getChild("error").getChild("kicked"));
+            this.autoNameLinker_ = new AutoNameLinker(
+                    this,
+                    this.runical_.getChild("kicked_message")
+            );
         } catch (IllegalStateException ex) {
             this.getLogger().log(
                     Level.SEVERE,

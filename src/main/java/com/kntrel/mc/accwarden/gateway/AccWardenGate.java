@@ -22,6 +22,7 @@ public final class AccWardenGate implements Listener {
     private final AccwarderGatekeeper gatekeeper_;
     private final NetworkKeyResolver networkKeyResolver_;
     private final Holder holder_;
+    private final ThrottleMessageFormatter throttleMessageFormatter_;
 
     public AccWardenGate(AccWarden plugin, AccwarderGatekeeper gatekeeper, Holder holder) {
         this.plugin_ = Objects.requireNonNull(plugin, "plugin");
@@ -29,6 +30,7 @@ public final class AccWardenGate implements Listener {
         this.gatekeeper_ = Objects.requireNonNull(gatekeeper, "gatekeeper");
         this.networkKeyResolver_ = new NetworkKeyResolver(32, 64);
         this.holder_ = Objects.requireNonNull(holder, "holder");
+        this.throttleMessageFormatter_ = new ThrottleMessageFormatter(this.plugin_.getRunical());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -39,10 +41,10 @@ public final class AccWardenGate implements Listener {
         Decision decision = this.gatekeeper_.considerConnection(
                 this.networkKeyResolver_.resolve(e.getAddress())
         );
-        if (decision instanceof Decision.Throttled) {
+        if (decision instanceof Decision.Throttled throttled) {
             e.disallow(
                     PlayerLoginEvent.Result.KICK_OTHER,
-                    this.throttledMessage_(e.getPlayer())
+                    this.throttledMessage_(e.getPlayer(), throttled)
             );
         }
     }
@@ -53,8 +55,9 @@ public final class AccWardenGate implements Listener {
         NetworkKey network = this.networkKeyResolver_.resolve(player);
         LoginRequest request = new LoginRequest(player.getUniqueId(), network);
 
-        if (this.gatekeeper_.considerLogin(request) instanceof Decision.Throttled) {
-            this.kick_(player, this.throttledMessage_(player));
+        Decision decision = this.gatekeeper_.considerLogin(request);
+        if (decision instanceof Decision.Throttled throttled) {
+            this.kick_(player, this.throttledMessage_(player, throttled));
             return;
         }
 
@@ -76,8 +79,9 @@ public final class AccWardenGate implements Listener {
                 player.getUniqueId(),
                 this.networkKeyResolver_.resolve(player)
         );
-        if (this.gatekeeper_.recordFailedLogin(request) instanceof Decision.Throttled) {
-            e.kick(this.throttledMessage_(player));
+        Decision decision = this.gatekeeper_.recordFailedLogin(request);
+        if (decision instanceof Decision.Throttled throttled) {
+            e.kick(this.throttledMessage_(player, throttled));
         }
     }
 
@@ -107,7 +111,7 @@ public final class AccWardenGate implements Listener {
         this.kick_(
                 player,
                 this.plugin_.getRunical()
-                        .translate(player, "error.kicked.not_logged")
+                        .translate(player, "kicked_message.not_logged")
                         .orDefault("")
                         .message()
         );
@@ -118,11 +122,8 @@ public final class AccWardenGate implements Listener {
         player.kickPlayer(message);
     }
 
-    private String throttledMessage_(Player player) {
-        return this.plugin_.getRunical()
-                .translate(player, "error.kicked.throttled")
-                .orDefault("Too many authentication attempts. Please try again later.")
-                .message();
+    private String throttledMessage_(Player player, Decision.Throttled throttled) {
+        return this.throttleMessageFormatter_.format(player, throttled);
     }
 
     private void logFailure_(Player player, Throwable throwable) {

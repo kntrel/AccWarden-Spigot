@@ -194,7 +194,7 @@ public final class SessionService {
             }
             case ACCOUNT_LOCKED -> {
                 player.sendMessage(ChatColor.RED + this.plugin_.getRunical()
-                        .translate(player, "error.kicked.locked")
+                        .translate(player, "kicked_message.locked")
                         .orDefault("")
                         .message());
                 yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
