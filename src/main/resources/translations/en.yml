@@ -45,7 +45,6 @@ authentication_form:
       submit: "Log in"
       leave: "Leave server"
     error:
-      account_locked: "Your account has been locked."
       account_not_found: "This account does not exist."
       wrong_password:
         fine: "Wrong password!"
@@ -68,7 +67,6 @@ authentication_form:
       submit: "Log in"
       leave: "Quit"
     error:
-      account_locked: "Your account has been locked."
       account_not_found: "This account does not exist."
       wrong_password:
         fine: "Wrong password!"
@@ -128,7 +126,6 @@ kicked_message:
     connection_attempts: "You have made too many connection attempts. Please wait {remaining_time} before trying again."
     login_attempts: "You have made too many login attempts. Please wait {remaining_time} before trying again."
     global_limit: "The server is experiencing heavy traffic. Please wait {remaining_time} before trying again."
-  locked: "Your account has been locked."
   auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
 
 time_format:

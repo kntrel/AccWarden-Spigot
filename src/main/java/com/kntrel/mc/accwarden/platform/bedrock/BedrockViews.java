@@ -140,8 +140,6 @@ final class BedrockViews implements PlatformViews {
         return switch (failure) {
             case AuthenticationViewState.Failure.IncorrectPassword incorrect ->
                     this.incorrectPassword_(player, incorrect.attempt());
-            case AuthenticationViewState.Failure.AccountLocked _ ->
-                    this.authTranslate_(player, "error.account_locked", "Your account has been locked.");
             case AuthenticationViewState.Failure.AccountNotFound _ ->
                     this.authTranslate_(player, "error.account_not_found", "This account does not exist.");
             case AuthenticationViewState.Failure.Denied denied -> denied.message();

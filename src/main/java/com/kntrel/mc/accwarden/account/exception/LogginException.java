@@ -8,7 +8,6 @@ public class LogginException extends Exception {
 
     public enum Reason {
         ACCOUNT_NOT_FOUND,
-        ACCOUNT_LOCKED,
         INCORRECT_PASSWORD,
         DENIED
     }

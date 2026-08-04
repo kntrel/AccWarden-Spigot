@@ -99,7 +99,6 @@ public class Account {
     public boolean hasUuid() {
         return this.uuid_ != null;
     }
-    public boolean isLocked() { return false; }
     public AccountService getService() {
         return this.service_;
     }
@@ -135,8 +134,6 @@ public class Account {
     public void delete() {
         this.service_.delete(this);
     }
-    public void lock() {}
-
     @Override
     public String toString() {
         return

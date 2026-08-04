@@ -109,9 +109,6 @@ public final class AccountService implements AccountRepository {
     @Nonnull
     public Account authenticate(Account account, String password) throws LogginException {
         account = this.prepare(account);
-        if (account.isLocked()) {
-            throw new LogginException(LogginException.Reason.ACCOUNT_LOCKED, account);
-        }
         if (!account.checkPassword(password)) {
             throw new LogginException(LogginException.Reason.INCORRECT_PASSWORD, account);
         }

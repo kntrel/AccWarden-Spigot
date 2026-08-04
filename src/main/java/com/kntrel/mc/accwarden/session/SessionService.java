@@ -192,13 +192,6 @@ public final class SessionService {
                         state.nextIncorrectPassword()
                 );
             }
-            case ACCOUNT_LOCKED -> {
-                player.sendMessage(ChatColor.RED + this.plugin_.getRunical()
-                        .translate(player, "kicked_message.locked")
-                        .orDefault("")
-                        .message());
-                yield CompletableFuture.completedFuture(SessionResult.unauthenticated());
-            }
             case ACCOUNT_NOT_FOUND -> this.beginRegistration_(job, player, platform);
             case DENIED -> {
                 exception.getPublicMessage().ifPresent(player::sendMessage);

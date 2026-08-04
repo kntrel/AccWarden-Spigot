@@ -67,8 +67,6 @@ public record AuthenticationViewState(Kind kind, Optional<Failure> failure) {
             }
         }
 
-        record AccountLocked() implements Failure {}
-
         record AccountNotFound() implements Failure {}
 
         record Denied(String message) implements Failure {}
