@@ -1,0 +1,295 @@
+registration_form:
+  java:
+    # Shown as the introductory text at the top of the Java Edition registration form.
+    disclosure: "Este servidor requiere una contraseña para proteger tu cuenta."
+    input:
+      # Shown as the password field label in the Java Edition registration form.
+      password: "Contraseña"
+      # Shown as the password-confirmation field label in the Java Edition registration form.
+      confirm_password: "Confirmar contraseña"
+    action:
+      # Shown on the button that submits the Java Edition registration form.
+      submit: "Registrarse"
+      # Shown on the button that leaves the server without registering from Java Edition.
+      leave: "Salir del servidor"
+    error:
+      invalid_input:
+        # Shown in the Java Edition registration form after submitting an empty password.
+        password_required: "La contraseña es obligatoria."
+        # Shown in the Java Edition registration form after submitting an empty confirmation.
+        confirm_password_required: "¡Falta confirmar la contraseña!"
+        # Shown in the Java Edition registration form when the password and confirmation differ.
+        no_match: "¡Las contraseñas no coinciden!"
+        # Shown in the Java Edition registration form after the submitted password is rejected for being too short.
+        # {min}: The configured minimum password length.
+        too_short: "Tu contraseña debe tener al menos {min} caracteres."
+        # Shown in the Java Edition registration form after the submitted password is rejected for being too long.
+        # {max}: The configured maximum password length.
+        too_long: "Tu contraseña no puede tener más de {max} caracteres."
+      # Shown in the Java Edition registration form when the submitted password is rejected for another validation reason.
+      password_rejected: "La contraseña fue rechazada."
+  bedrock:
+    # Shown as the introductory text at the top of the Bedrock Edition registration form.
+    disclosure: "¡Te damos la bienvenida al servidor! Crea una contraseña para proteger tu cuenta al entrar desde Java.\n¡No tendrás que volver a ingresarla desde Bedrock!"
+    input:
+      # Shown as the password field label in the Bedrock Edition registration form.
+      password: "Contraseña:"
+      # Shown as the example text inside the Bedrock Edition registration password field.
+      password_placeholder: "creeper123"
+      # Shown as the password-confirmation field label in the Bedrock Edition registration form.
+      confirm_password: "Confirmar contraseña:"
+      # Shown as the example text inside the Bedrock Edition registration confirmation field.
+      confirm_password_placeholder: "creeper123"
+    action:
+      # Shown on the button that submits the Bedrock Edition registration form.
+      submit: "Registrarse"
+      # Reserved for a Bedrock Edition leave button; the current registration form does not fetch this key.
+      leave: "Salir"
+    error:
+      invalid_input:
+        # Shown in the Bedrock Edition registration form after submitting an empty password.
+        password_required: "La contraseña es obligatoria."
+        # Shown in the Bedrock Edition registration form after submitting an empty confirmation.
+        confirm_password_required: "¡Falta confirmar la contraseña!"
+        # Shown in the Bedrock Edition registration form when the password and confirmation differ.
+        no_match: "¡Las contraseñas no coinciden!"
+        # Shown in the Bedrock Edition registration form after the submitted password is rejected for being too short.
+        # {min}: The configured minimum password length.
+        too_short: "Tu contraseña debe tener al menos {min} caracteres."
+        # Shown in the Bedrock Edition registration form after the submitted password is rejected for being too long.
+        # {max}: The configured maximum password length.
+        too_long: "Tu contraseña no puede tener más de {max} caracteres."
+      # Shown in the Bedrock Edition registration form when the submitted password is rejected for another validation reason.
+      password_rejected: "La contraseña fue rechazada."
+
+authentication_form:
+  java:
+    disclosure:
+      # Shown at the top of the Java Edition login form for an account that has used Java Edition before.
+      regular: "¡Qué bueno verte de nuevo!\nIngresa la contraseña de tu cuenta."
+      # Shown at the top of the Java Edition login form when a Bedrock-created account joins from Java for the first time.
+      platform_first_time: "¡Te damos la bienvenida a Java!\nIngresa la contraseña que usaste la primera vez que entraste desde Bedrock."
+    input:
+      # Shown as the password field label in the Java Edition login form.
+      password: "Contraseña"
+    action:
+      # Shown on the button that submits the Java Edition login form.
+      submit: "Iniciar sesión"
+      # Shown on the button that leaves the server without logging in from Java Edition.
+      leave: "Salir del servidor"
+    error:
+      # Shown in the Java Edition login form if the account no longer exists when authentication is attempted.
+      account_not_found: "Esta cuenta no existe."
+      wrong_password:
+        # Shown in the Java Edition login form after an early incorrect-password attempt.
+        fine: "¡Contraseña incorrecta!"
+        # Shown in the Java Edition login form once incorrect attempts reach the configured odd-attempt threshold.
+        odd: "¡Contraseña incorrecta! Comunícate con los administradores si tienes problemas para iniciar sesión."
+        # Shown in the Java Edition login form once incorrect attempts reach the configured warning threshold.
+        warn: "¡Contraseña incorrecta! El acceso de tu red está a punto de limitarse temporalmente."
+      invalid_input:
+        # Shown in the Java Edition login form after submitting an empty password.
+        password_required: "La contraseña es obligatoria."
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        no_match: "¡Las contraseñas no coinciden!"
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        non_confirmed: "¡Falta confirmar la contraseña!"
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        # {min}: The minimum accepted password length.
+        too_short: "Tu contraseña debe tener al menos {min} caracteres."
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        # {max}: The maximum accepted password length.
+        too_long: "Tu contraseña no puede tener más de {max} caracteres."
+  bedrock:
+    disclosure:
+      # Shown at the top of the Bedrock Edition login form for an account that has used Bedrock Edition before.
+      regular: "Ingresa la contraseña de tu cuenta."
+      # Shown at the top of the Bedrock Edition login form when a Java-created account joins from Bedrock for the first time.
+      platform_first_time: "¡Hola! Tu cuenta ya fue registrada desde Java. Ingresa tu contraseña para verificar tu identidad.\n¡No tendrás que volver a ingresarla desde Bedrock!"
+    input:
+      # Shown as the password field label in the Bedrock Edition login form.
+      password: "Contraseña:"
+      # Shown as the example text inside the Bedrock Edition login password field.
+      password_placeholder: "Tu contraseña"
+    action:
+      # Shown on the button that submits the Bedrock Edition login form.
+      submit: "Iniciar sesión"
+      # Reserved for a Bedrock Edition leave button; the current login form does not fetch this key.
+      leave: "Salir"
+    error:
+      # Shown in the Bedrock Edition login form if the account no longer exists when authentication is attempted.
+      account_not_found: "Esta cuenta no existe."
+      wrong_password:
+        # Shown in the Bedrock Edition login form after an early incorrect-password attempt.
+        fine: "¡Contraseña incorrecta!"
+        # Shown in the Bedrock Edition login form once incorrect attempts reach the configured odd-attempt threshold.
+        odd: "¡Contraseña incorrecta! Comunícate con los administradores si tienes problemas para iniciar sesión."
+        # Shown in the Bedrock Edition login form once incorrect attempts reach the configured warning threshold.
+        warn: "¡Contraseña incorrecta! El acceso de tu red está a punto de limitarse temporalmente."
+      invalid_input:
+        # Shown in the Bedrock Edition login form after submitting an empty password.
+        password_required: "La contraseña es obligatoria."
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        no_match: "¡Las contraseñas no coinciden!"
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        non_confirmed: "¡Falta confirmar la contraseña!"
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        # {min}: The minimum accepted password length.
+        too_short: "Tu contraseña debe tener al menos {min} caracteres."
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        # {max}: The maximum accepted password length.
+        too_long: "Tu contraseña no puede tener más de {max} caracteres."
+
+account_form:
+  # Shown as the account summary when a logged-in player runs /account.
+  # {name}: The account's current player name.
+  # {last_login}: The account's last-login date and time in yyyy-MM-dd HH:mm format.
+  # {joined}: The account's creation date and time in yyyy-MM-dd HH:mm format.
+  # {platforms}: A comma-separated list of editions from which the account has joined.
+  overview: |-
+    &6&l✦ Cuenta ✦&r
+    &8━━━━━━━━━━━━━━━━&r
+    &7Nombre &8› &f{name}&r
+    &7Último inicio de sesión &8› &f{last_login}&r
+    &7Fecha de registro &8› &f{joined}&r
+    &7Plataformas &8› &f[{platforms}]
+  action:
+    # Shown on the account-summary button that opens the account-reset confirmation form.
+    reset: "Restablecer cuenta"
+    # Shown on the account-summary button that opens the password-change form.
+    change_password: "Cambiar contraseña"
+  reset:
+    # Shown as the warning text in the account-reset confirmation form.
+    disclaimer: "Advertencia: Restablecer tu cuenta la eliminará y dejará tu nombre sin protección. Cualquier persona podrá reclamarlo registrando una contraseña nueva."
+    action:
+      # Shown on the button that confirms account deletion in the account-reset form.
+      confirm: "Restablecer cuenta"
+      # Shown on the button that returns from the account-reset form to the account summary.
+      cancel: "Cancelar"
+  change_password:
+    # Shown as the introductory text at the top of the password-change form.
+    disclosure: "Ingresa y confirma la contraseña nueva de tu cuenta."
+    input:
+      # Shown as the new-password field label in the password-change form.
+      password: "Contraseña nueva"
+      # Shown as the example text inside the new-password field.
+      password_placeholder: "Ingresa una contraseña nueva"
+      # Shown as the confirmation field label in the password-change form.
+      confirm_password: "Confirmar contraseña"
+      # Shown as the example text inside the confirmation field.
+      confirm_password_placeholder: "Repite la contraseña nueva"
+    action:
+      # Shown on the button that submits the password-change form.
+      submit: "Cambiar contraseña"
+      # Shown on the button that returns from the password-change form to the account summary.
+      back: "Volver"
+    error:
+      # Shown in the password-change form after submitting an empty new password.
+      password_required: "La contraseña es obligatoria."
+      # Shown in the password-change form after submitting an empty confirmation.
+      confirm_password_required: "Debes confirmar la contraseña."
+      # Shown in the password-change form when the new password and confirmation differ.
+      no_match: "Las contraseñas no coinciden."
+      # Shown in the password-change form when the new password is shorter than the configured limit.
+      # {min}: The configured minimum password length.
+      too_short: "Tu contraseña debe tener al menos {min} caracteres."
+      # Shown in the password-change form when the new password is longer than the configured limit.
+      # {max}: The configured maximum password length.
+      too_long: "Tu contraseña no puede tener más de {max} caracteres."
+
+command:
+  # Shown as a command error when the specified player does not have an account.
+  # {player}: The specified player's current name.
+  unexisting_account: "{player} no tiene una cuenta."
+  reset:
+    # Returned after an administrator successfully deletes another player's account with /account reset <player>.
+    # {player}: The name of the player whose account was deleted.
+    success: "Se eliminó la cuenta de {player}."
+  changePassword:
+    # Shown after a player successfully changes their password through the command or account form.
+    success: "Tu contraseña fue cambiada."
+
+kicked_message:
+  # Reserved as a disconnect reason for unregistered players; the current code does not fetch this key.
+  not_registered: "Debes registrarte con una contraseña para jugar en este servidor."
+  # Shown as the disconnect reason when a player leaves or fails to complete the login or registration flow.
+  not_logged: "Debes ingresar tu contraseña para jugar."
+  throttled:
+    # Shown as the disconnect reason when a network has made too many connection attempts.
+    # {remaining_time}: A localized duration until connections from the network may be attempted again.
+    connection_attempts: "Realizaste demasiados intentos de conexión. Espera {remaining_time} antes de volver a intentarlo."
+    # Shown as the disconnect reason when too many failed login attempts trigger a temporary network penalty.
+    # {remaining_time}: A localized duration until login may be attempted again.
+    login_attempts: "Realizaste demasiados intentos de inicio de sesión. Espera {remaining_time} antes de volver a intentarlo."
+    # Shown as the disconnect reason when the server-wide connection bucket is at capacity.
+    # {remaining_time}: A localized duration until another connection may be attempted.
+    global_limit: "El servidor está recibiendo mucho tráfico. Espera {remaining_time} antes de volver a intentarlo."
+  # Shown as the Bedrock disconnect reason when automatic linking to the corresponding Java identity fails or times out.
+  auto_name_link_failed: "No pudimos vincular tu cuenta de Bedrock con la identidad correspondiente de Java. Inténtalo de nuevo."
+
+time_format:
+  unit:
+    hour:
+      # Used for a one-hour component in a localized throttle duration.
+      # {value}: The numeric hour count; this variant is selected only when the value is 1.
+      one: "{value} hora"
+      # Used for a zero-hour or plural-hour component in a localized throttle duration.
+      # {value}: The numeric hour count; this variant is selected when the value is not 1.
+      other: "{value} horas"
+    minute:
+      # Used for a one-minute component in a localized throttle duration.
+      # {value}: The numeric minute count; this variant is selected only when the value is 1.
+      one: "{value} minuto"
+      # Used for a zero-minute or plural-minute component in a localized throttle duration.
+      # {value}: The numeric minute count; this variant is selected when the value is not 1.
+      other: "{value} minutos"
+    second:
+      # Used for a one-second component in a localized throttle duration.
+      # {value}: The numeric second count; this variant is selected only when the value is 1.
+      one: "{value} segundo"
+      # Used for a zero-second or plural-second component in a localized throttle duration.
+      # {value}: The numeric second count; this variant is selected when the value is not 1.
+      other: "{value} segundos"
+  join:
+    # Used to join exactly two non-zero components of a localized throttle duration.
+    # {first}: The first formatted duration component.
+    # {second}: The second formatted duration component.
+    two: "{first} y {second}"
+    # Used to join exactly three non-zero components of a localized throttle duration.
+    # {first}: The first formatted duration component.
+    # {second}: The second formatted duration component.
+    # {third}: The third formatted duration component.
+    three: "{first}, {second} y {third}"
+
+error:
+  not_allowed:
+    # Shown in chat when a held, unauthenticated player tries to send a chat message.
+    send_message: "No puedes enviar mensajes hasta que inicies sesión."
+    # Shown when a held, unauthenticated player tries to run a command, or when a logged-in account is required for command binding.
+    issue_command: "No puedes ejecutar comandos hasta que inicies sesión."
+
+  invalid_input:
+    # Shown when the password and confirmation differ in the /account changePassword command or account form.
+    no_match: "¡Las contraseñas no coinciden!"
+    # Reserved for shared password validation; the current code does not fetch this key.
+    non_confirmed: "¡Falta confirmar la contraseña!"
+    # Shown when a password submitted through an account command or account form is too short.
+    # {min}: The configured minimum password length.
+    too_short: "Tu contraseña debe tener al menos {min} caracteres."
+    # Shown when a password submitted through an account command or account form is too long.
+    # {max}: The configured maximum password length.
+    too_long: "Tu contraseña no puede tener más de {max} caracteres."
+
+  incorrect_password:
+    # Reserved as a shared early-attempt login error; current forms use their platform-specific authentication_form key instead.
+    fine: "¡Contraseña incorrecta!"
+    # Reserved as a shared odd-threshold login error; current forms use their platform-specific authentication_form key instead.
+    odd: "¡Contraseña incorrecta! Comunícate con los administradores si tienes problemas para iniciar sesión."
+    # Reserved as a shared warning-threshold login error; current forms use their platform-specific authentication_form key instead.
+    warn: "¡Contraseña incorrecta! El acceso de tu red está a punto de limitarse temporalmente."
+
+info:
+  # Shown in the player's chat after a successful login, registration, or cached-session resume.
+  logged_in: "¡Sesión iniciada!"
+  # Shown as the disconnect reason when an online player's account is deleted.
+  account_deleted: "Tu cuenta fue eliminada. Vuelve a entrar."
