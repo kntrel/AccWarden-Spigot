@@ -1,85 +1,151 @@
 registration_form:
   java:
+    # Shown as the introductory text at the top of the Java Edition registration form.
     disclosure: "This server requires a password to protect your account."
     input:
+      # Shown as the password field label in the Java Edition registration form.
       password: "Password"
+      # Shown as the password-confirmation field label in the Java Edition registration form.
       confirm_password: "Confirm password"
     action:
+      # Shown on the button that submits the Java Edition registration form.
       submit: "Register"
+      # Shown on the button that leaves the server without registering from Java Edition.
       leave: "Leave server"
     error:
       invalid_input:
+        # Shown in the Java Edition registration form after submitting an empty password.
         password_required: "Password is required."
+        # Shown in the Java Edition registration form after submitting an empty confirmation.
         confirm_password_required: "Missing confirmation!"
+        # Shown in the Java Edition registration form when the password and confirmation differ.
         no_match: "Passwords do not match!"
+        # Shown in the Java Edition registration form after the submitted password is rejected for being too short.
+        # {min}: The configured minimum password length.
         too_short: "Your password cannot have less than {min} characters."
+        # Shown in the Java Edition registration form after the submitted password is rejected for being too long.
+        # {max}: The configured maximum password length.
         too_long: "Your password cannot have more than {max} characters."
+      # Shown in the Java Edition registration form when the submitted password is rejected for another validation reason.
       password_rejected: "Password rejected."
   bedrock:
+    # Shown as the introductory text at the top of the Bedrock Edition registration form.
     disclosure: "Welcome to the server! Define a password to protect your account from Java Edition.\nYou won't have to re-enter it from bedrock!"
     input:
+      # Shown as the password field label in the Bedrock Edition registration form.
       password: "Password:"
+      # Shown as the example text inside the Bedrock Edition registration password field.
       password_placeholder: "creeper123"
+      # Shown as the password-confirmation field label in the Bedrock Edition registration form.
       confirm_password: "Confirm password:"
+      # Shown as the example text inside the Bedrock Edition registration confirmation field.
       confirm_password_placeholder: "creeper123"
     action:
+      # Shown on the button that submits the Bedrock Edition registration form.
       submit: "Register"
+      # Reserved for a Bedrock Edition leave button; the current registration form does not fetch this key.
       leave: "Quit"
     error:
       invalid_input:
+        # Shown in the Bedrock Edition registration form after submitting an empty password.
         password_required: "Password is required."
+        # Shown in the Bedrock Edition registration form after submitting an empty confirmation.
         confirm_password_required: "Missing confirmation!"
+        # Shown in the Bedrock Edition registration form when the password and confirmation differ.
         no_match: "Passwords do not match!"
+        # Shown in the Bedrock Edition registration form after the submitted password is rejected for being too short.
+        # {min}: The configured minimum password length.
         too_short: "Your password cannot have less than {min} characters."
+        # Shown in the Bedrock Edition registration form after the submitted password is rejected for being too long.
+        # {max}: The configured maximum password length.
         too_long: "Your password cannot have more than {max} characters."
+      # Shown in the Bedrock Edition registration form when the submitted password is rejected for another validation reason.
       password_rejected: "Password rejected."
 
 authentication_form:
   java:
     disclosure:
+      # Shown at the top of the Java Edition login form for an account that has used Java Edition before.
       regular: "Welcome back!\nEnter your account password."
+      # Shown at the top of the Java Edition login form when a Bedrock-created account joins from Java for the first time.
       platform_first_time: "Welcome to Java!\nType the password you entered the first time you joined from bedrock"
     input:
+      # Shown as the password field label in the Java Edition login form.
       password: "Password"
     action:
+      # Shown on the button that submits the Java Edition login form.
       submit: "Log in"
+      # Shown on the button that leaves the server without logging in from Java Edition.
       leave: "Leave server"
     error:
+      # Shown in the Java Edition login form if the account no longer exists when authentication is attempted.
       account_not_found: "This account does not exist."
       wrong_password:
+        # Shown in the Java Edition login form after an early incorrect-password attempt.
         fine: "Wrong password!"
+        # Shown in the Java Edition login form once incorrect attempts reach the configured odd-attempt threshold.
         odd: "Wrong password! Contact the admins if you're having trouble logging in."
+        # Shown in the Java Edition login form once incorrect attempts reach the configured warning threshold.
         warn: "Wrong password! Your network is about to be temporarily throttled."
       invalid_input:
+        # Shown in the Java Edition login form after submitting an empty password.
         password_required: "Password is required."
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
         no_match: "Passwords do not match!"
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
         non_confirmed: "Missing confirmation!"
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        # {min}: The minimum accepted password length.
         too_short: "Your password cannot have less than {min} characters."
+        # Reserved for Java Edition login validation; the current login form does not fetch this key.
+        # {max}: The maximum accepted password length.
         too_long: "Your password cannot have more than {max} characters."
   bedrock:
     disclosure:
+      # Shown at the top of the Bedrock Edition login form for an account that has used Bedrock Edition before.
       regular: "Enter your account password."
+      # Shown at the top of the Bedrock Edition login form when a Java-created account joins from Bedrock for the first time.
       platform_first_time: "Hey! Your account is already registered from Java. Type your password to verify yourself.\nYou won't have to re-enter it from Bedrock!"
     input:
+      # Shown as the password field label in the Bedrock Edition login form.
       password: "Password:"
+      # Shown as the example text inside the Bedrock Edition login password field.
       password_placeholder: "Your password"
     action:
+      # Shown on the button that submits the Bedrock Edition login form.
       submit: "Log in"
+      # Reserved for a Bedrock Edition leave button; the current login form does not fetch this key.
       leave: "Quit"
     error:
+      # Shown in the Bedrock Edition login form if the account no longer exists when authentication is attempted.
       account_not_found: "This account does not exist."
       wrong_password:
+        # Shown in the Bedrock Edition login form after an early incorrect-password attempt.
         fine: "Wrong password!"
+        # Shown in the Bedrock Edition login form once incorrect attempts reach the configured odd-attempt threshold.
         odd: "Wrong password! Contact the admins if you're having trouble logging in."
+        # Shown in the Bedrock Edition login form once incorrect attempts reach the configured warning threshold.
         warn: "Wrong password! Your network is about to be temporarily throttled."
       invalid_input:
+        # Shown in the Bedrock Edition login form after submitting an empty password.
         password_required: "Password is required."
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
         no_match: "Passwords do not match!"
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
         non_confirmed: "Missing confirmation!"
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        # {min}: The minimum accepted password length.
         too_short: "Your password cannot have less than {min} characters."
+        # Reserved for Bedrock Edition login validation; the current login form does not fetch this key.
+        # {max}: The maximum accepted password length.
         too_long: "Your password cannot have more than {max} characters."
 
 account_form:
+  # Shown as the account summary when a logged-in player runs /account.
+  # {name}: The account's current player name.
+  # {last_login}: The account's last-login date and time in yyyy-MM-dd HH:mm format.
+  # {joined}: The account's creation date and time in yyyy-MM-dd HH:mm format.
+  # {platforms}: A comma-separated list of editions from which the account has joined.
   overview: |-
     &6&l✦ Account ✦&r
     &8━━━━━━━━━━━━━━━━&r
@@ -88,77 +154,142 @@ account_form:
     &7Joined &8› &f{joined}&r
     &7Platforms &8› &f[{platforms}]
   action:
+    # Shown on the account-summary button that opens the account-reset confirmation form.
     reset: "Reset account"
+    # Shown on the account-summary button that opens the password-change form.
     change_password: "Change password"
   reset:
+    # Shown as the warning text in the account-reset confirmation form.
     disclaimer: "Warning: Resetting deletes your account and leaves it unprotected. Anyone will be able to claim it by registering a new password."
     action:
+      # Shown on the button that confirms account deletion in the account-reset form.
       confirm: "Reset account"
+      # Shown on the button that returns from the account-reset form to the account summary.
       cancel: "Cancel"
   change_password:
+    # Shown as the introductory text at the top of the password-change form.
     disclosure: "Enter and confirm the new password for your account."
     input:
+      # Shown as the new-password field label in the password-change form.
       password: "New password"
+      # Shown as the example text inside the new-password field.
       password_placeholder: "Enter a new password"
+      # Shown as the confirmation field label in the password-change form.
       confirm_password: "Confirm password"
+      # Shown as the example text inside the confirmation field.
       confirm_password_placeholder: "Repeat the new password"
     action:
+      # Shown on the button that submits the password-change form.
       submit: "Change password"
+      # Shown on the button that returns from the password-change form to the account summary.
       back: "Back"
     error:
+      # Shown in the password-change form after submitting an empty new password.
       password_required: "Password is required."
+      # Shown in the password-change form after submitting an empty confirmation.
       confirm_password_required: "Password confirmation is required."
+      # Shown in the password-change form when the new password and confirmation differ.
       no_match: "Passwords do not match."
+      # Shown in the password-change form when the new password is shorter than the configured limit.
+      # {min}: The configured minimum password length.
       too_short: "Your password must contain at least {min} characters."
+      # Shown in the password-change form when the new password is longer than the configured limit.
+      # {max}: The configured maximum password length.
       too_long: "Your password cannot contain more than {max} characters."
 
 command:
+  # Shown as a command error when the specified player does not have an account.
+  # {player}: The specified player's current name.
   unexisting_account: "{player} doesn't have an account."
   reset:
+    # Returned after an administrator successfully deletes another player's account with /account reset <player>.
+    # {player}: The name of the player whose account was deleted.
     success: "{player}'s account has been deleted."
   changePassword:
+    # Shown after a player successfully changes their password through the command or account form.
     success: "Your password has been changed."
 
 kicked_message:
+  # Reserved as a disconnect reason for unregistered players; the current code does not fetch this key.
   not_registered: "You must register with a password to play in this server."
+  # Shown as the disconnect reason when a player leaves or fails to complete the login or registration flow.
   not_logged: "You must enter your password to play."
   throttled:
+    # Shown as the disconnect reason when a network has made too many connection attempts.
+    # {remaining_time}: A localized duration until connections from the network may be attempted again.
     connection_attempts: "You have made too many connection attempts. Please wait {remaining_time} before trying again."
+    # Shown as the disconnect reason when too many failed login attempts trigger a temporary network penalty.
+    # {remaining_time}: A localized duration until login may be attempted again.
     login_attempts: "You have made too many login attempts. Please wait {remaining_time} before trying again."
+    # Shown as the disconnect reason when the server-wide connection bucket is at capacity.
+    # {remaining_time}: A localized duration until another connection may be attempted.
     global_limit: "The server is experiencing heavy traffic. Please wait {remaining_time} before trying again."
+  # Shown as the Bedrock disconnect reason when automatic linking to the corresponding Java identity fails or times out.
   auto_name_link_failed: "We couldn't link your Bedrock account to its Java identity. Please try again."
 
 time_format:
   unit:
     hour:
+      # Used for a one-hour component in a localized throttle duration.
+      # {value}: The numeric hour count; this variant is selected only when the value is 1.
       one: "{value} hour"
+      # Used for a zero-hour or plural-hour component in a localized throttle duration.
+      # {value}: The numeric hour count; this variant is selected when the value is not 1.
       other: "{value} hours"
     minute:
+      # Used for a one-minute component in a localized throttle duration.
+      # {value}: The numeric minute count; this variant is selected only when the value is 1.
       one: "{value} minute"
+      # Used for a zero-minute or plural-minute component in a localized throttle duration.
+      # {value}: The numeric minute count; this variant is selected when the value is not 1.
       other: "{value} minutes"
     second:
+      # Used for a one-second component in a localized throttle duration.
+      # {value}: The numeric second count; this variant is selected only when the value is 1.
       one: "{value} second"
+      # Used for a zero-second or plural-second component in a localized throttle duration.
+      # {value}: The numeric second count; this variant is selected when the value is not 1.
       other: "{value} seconds"
   join:
+    # Used to join exactly two non-zero components of a localized throttle duration.
+    # {first}: The first formatted duration component.
+    # {second}: The second formatted duration component.
     two: "{first} and {second}"
+    # Used to join exactly three non-zero components of a localized throttle duration.
+    # {first}: The first formatted duration component.
+    # {second}: The second formatted duration component.
+    # {third}: The third formatted duration component.
     three: "{first}, {second} and {third}"
 
 error:
   not_allowed:
+    # Shown in chat when a held, unauthenticated player tries to send a chat message.
     send_message: "You're not allowed to send messages until logged in."
+    # Shown when a held, unauthenticated player tries to run a command, or when a logged-in account is required for command binding.
     issue_command: "You're not allowed issue commands until logged in."
 
   invalid_input:
+    # Shown when the password and confirmation differ in the /account changePassword command or account form.
     no_match: "Passwords do not match!"
+    # Reserved for shared password validation; the current code does not fetch this key.
     non_confirmed: "Missing confirmation!"
+    # Shown when a password submitted through an account command or account form is too short.
+    # {min}: The configured minimum password length.
     too_short: "Your password cannot have less than {min} characters."
+    # Shown when a password submitted through an account command or account form is too long.
+    # {max}: The configured maximum password length.
     too_long: "Your password cannot have more than {max} characters."
 
   incorrect_password:
+    # Reserved as a shared early-attempt login error; current forms use their platform-specific authentication_form key instead.
     fine: "Wrong password!"
+    # Reserved as a shared odd-threshold login error; current forms use their platform-specific authentication_form key instead.
     odd: "Wrong password! Contact the admins if you're having trouble logging in."
+    # Reserved as a shared warning-threshold login error; current forms use their platform-specific authentication_form key instead.
     warn: "Wrong password! Your network is about to be temporarily throttled."
 
 info:
+  # Shown in the player's chat after a successful login, registration, or cached-session resume.
   logged_in: "Logged in!"
+  # Shown as the disconnect reason when an online player's account is deleted.
   account_deleted: "Your account has been deleted. Pleaser re-join."
